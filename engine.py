@@ -6,10 +6,11 @@ and thresholded property heuristics over a hand-entered catalog of literature-so
 inorganic materials.
 """
 
+import argparse
 from dataclasses import dataclass, field
 import math
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # Approximate industrial / supplier elemental prices ($ USD per kg of raw element).
 # Note: This coarse model multiplies atomic weight fractions by elemental prices and
@@ -353,15 +354,92 @@ def get_universal_catalog() -> List[UniversalCompound]:
     ]
 
 
-def breed_universal_anomalies_rsi(gen_num: int, count: int = 4) -> List[UniversalCompound]:
-    """Temporary wrapper replaced in Step 4."""
-    return []
+def generate_placeholder_candidates(
+    count: int = 4,
+    rng: Optional[random.Random] = None,
+    start_index: int = 1,
+) -> List[UniversalCompound]:
+    """
+    Generates synthetic, unverified placeholder rows using a deterministic
+    `random.Random` instance for UI/pipeline testing.
+    Every returned entry has `placeholder=True` and carries no literature citations.
+    """
+    if count <= 0:
+        return []
+    if rng is None:
+        rng = random.Random(0)
+
+    cations = ["Fe", "Al", "Mg", "Si", "Ca", "Na", "Mn", "Zn"]
+    anions = ["B", "C", "N", "O", "P", "S"]
+    results: List[UniversalCompound] = []
+
+    for offset in range(count):
+        idx = start_index + offset
+        m1, m2 = rng.sample(cations, 2)
+        x1, x2 = rng.sample(anions, 2)
+        # Finalize composition first so formula, name, and density always match
+        comp: Dict[str, float] = {
+            m1: float(rng.randint(1, 3)),
+            m2: float(rng.randint(1, 2)),
+            x1: float(rng.randint(1, 4)),
+            x2: float(rng.randint(1, 3)),
+        }
+        formula = "".join(f"{el}{int(cnt)}" for el, cnt in comp.items())
+        avg_mass = sum(ATOMIC_MASS[el] * n for el, n in comp.items()) / sum(comp.values())
+        density = round(max(2.1, min(6.0, avg_mass * rng.uniform(0.085, 0.125))), 2)
+        bulk = round(rng.uniform(60.0, 210.0), 1)
+        shear = round(rng.uniform(30.0, 140.0), 1)
+        cte = round(rng.uniform(-2.0, 12.0), 2)
+        t_cond = round(rng.uniform(2.0, 90.0), 1)
+        b_gap = round(rng.choice([0.0, rng.uniform(0.5, 5.0)]), 2)
+
+        results.append(
+            UniversalCompound(
+                name=f"Placeholder-{formula} (Synthetic #{idx})",
+                structure_class="Synthetic Placeholder (Unverified)",
+                composition=comp,
+                density_g_cm3=density,
+                bulk_modulus_gpa=bulk,
+                shear_modulus_gpa=shear,
+                thermal_expansion_ppm=cte,
+                thermal_cond_w_mk=t_cond,
+                band_gap_ev=b_gap,
+                source="Synthetic placeholder (generated via random.Random; not experimental or DFT data)",
+                property_sources={},
+                placeholder=True,
+            )
+        )
+    return results
 
 
-def main() -> None:
+def main(argv: Optional[List[str]] = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Evaluate literature-sourced materials catalog and optional synthetic placeholders."
+    )
+    parser.add_argument(
+        "--placeholders",
+        type=int,
+        default=0,
+        help="Number of synthetic placeholder rows to generate in a separate unranked table (default: 0).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed for deterministic placeholder generation (default: 42).",
+    )
+    args = parser.parse_args(argv)
+
     catalog = get_universal_catalog()
     for c in catalog:
         print(f"{c.name}: cost=${c.raw_cost_per_kg:.2f}/kg, source={c.source}")
+
+    if args.placeholders > 0:
+        rng = random.Random(args.seed)
+        placeholders = generate_placeholder_candidates(count=args.placeholders, rng=rng)
+        print("\n--- SYNTHETIC PLACEHOLDERS (UNVERIFIED, UNRANKED) ---")
+        for p in placeholders:
+            print(f"[PLACEHOLDER] {p.name} | formula={p.formula} | cost=${p.raw_cost_per_kg:.2f}/kg")
 
 
 if __name__ == "__main__":
