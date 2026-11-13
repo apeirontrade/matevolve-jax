@@ -45,9 +45,6 @@ class UniversalCompound:
     thermal_expansion_ppm: float
     thermal_cond_w_mk: float
     band_gap_ev: float
-    ionic_cond_ms_cm: float = 0.0
-    seebeck_uv_k: float = 0.0
-    surface_repulsion_idx: float = 0.0
     source: str = ""
     property_sources: Dict[str, str] = field(default_factory=dict)
     placeholder: bool = False
@@ -118,20 +115,10 @@ class UniversalCompound:
         return min(100.0, (cte_distance / 6.5) * 78.0 * neg_bonus * stiff_factor)
 
     @property
-    def anomaly_energy_quantum(self) -> float:
-        ionic_score = min(100.0, self.ionic_cond_ms_cm * 4.2)
-        te_score = min(100.0, (self.seebeck_uv_k / 240.0) * (35.0 / max(self.thermal_cond_w_mk, 1.5)) * 28.0)
-        return max(ionic_score, te_score)
-
-    @property
     def anomaly_auxetic_shock(self) -> float:
         low_poisson = max(0.0, 0.26 - self.poisson_ratio) / 0.20
         light_factor = 3.5 / max(self.density_g_cm3, 1.8)
         return min(100.0, low_poisson * light_factor * 72.0)
-
-    @property
-    def anomaly_surface_pfas_free(self) -> float:
-        return min(100.0, self.surface_repulsion_idx)
 
     def detect_breakthrough_profile(self) -> Tuple[str, float, List[str], str]:
         checks = [
@@ -154,22 +141,10 @@ class UniversalCompound:
                 f"Thermal expansion of {self.thermal_expansion_ppm:+.1f} ppm/K prevents warping/cracking across extreme temperature swings."
             ),
             (
-                "Solid-State Energy & Ion Harvester",
-                self.anomaly_energy_quantum,
-                ["Non-Flammable Solid-State Batteries", "Waste-Heat-to-Electricity Generators", "Grid Storage", "Self-Powered Sensors"],
-                f"Exhibits {self.ionic_cond_ms_cm} mS/cm ion transport and {self.seebeck_uv_k} uV/K thermoelectric response."
-            ),
-            (
                 "Auxetic Shockwave Metamaterial",
                 self.anomaly_auxetic_shock,
                 ["Blast & Impact Shielding", "Acoustic/Sonar Cloaking", "Aerospace Structural Damping", "Biomechanics"],
                 f"Unusually low Poisson ratio ({self.poisson_ratio:.2f}) resists indentation and disperses mechanical shockwaves."
-            ),
-            (
-                "PFAS-Free Superlubricity & Non-Stick",
-                self.anomaly_surface_pfas_free,
-                ["Teflon/PFAS Replacement Coatings", "Zero-Wear Wind/Space Bearings", "Anti-Icing Aircraft Skins", "Marine Anti-Fouling"],
-                f"Achieves {self.surface_repulsion_idx:.0f}/100 fluorine-free surface slip and chemical inertness."
             ),
         ]
         best_title, raw_anomaly, industries, reason = max(checks, key=lambda x: x[1])
