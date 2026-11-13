@@ -8,7 +8,6 @@ inorganic materials.
 
 import argparse
 from dataclasses import dataclass, field
-import math
 import random
 from typing import Dict, List, Optional, Tuple
 
@@ -33,6 +32,9 @@ ATOMIC_MASS: Dict[str, float] = {
     "Cr": 52.00, "B":  10.81, "Ti": 47.87, "Zr": 91.22, "V": 50.94,
     "Ni": 58.69, "Mo": 95.95, "Sn": 118.71, "W": 183.84, "Nb": 92.91,
 }
+
+# Minimum heuristic score (0-100 scale) required to flag a property anomaly.
+HEURISTIC_THRESHOLD: float = 50.0
 
 
 @dataclass
@@ -83,7 +85,12 @@ class UniversalCompound:
 
     @property
     def vickers_hardness_gpa(self) -> float:
-        """Chen's empirical Vickers hardness correlation: Hv = 2*(k^2 * G)^0.585 - 3, k = G/B."""
+        """
+        Chen's empirical Vickers hardness correlation: Hv = 2*(k^2 * G)^0.585 - 3, k = G/B
+        (Chen et al., Intermetallics 19, 1275, 2011, DOI:10.1016/j.intermet.2011.03.026).
+        Note: Fit on brittle covalent/ionic crystals; overestimates indentation hardness
+        in layered MAX/MAB phases where basal dislocation slip occurs.
+        """
         k = self.shear_modulus_gpa / max(self.bulk_modulus_gpa, 1.0)
         val = 2.0 * ((k ** 2) * self.shear_modulus_gpa) ** 0.585 - 3.0
         return max(val, 1.0)
@@ -94,64 +101,110 @@ class UniversalCompound:
         b, g = self.bulk_modulus_gpa, self.shear_modulus_gpa
         return (9.0 * b * g) / (3.0 * b + g)
 
+    # -------------------------------------------------------------------------
+    # THRESHOLDED PROPERTY HEURISTICS (0 - 100 SCALE)
+    # -------------------------------------------------------------------------
+
     @property
-    def anomaly_dielectric_heat(self) -> float:
-        if self.band_gap_ev < 2.0:
+    def heuristic_dielectric_heat(self) -> float:
+        """
+        Heuristic 1 (Dielectric thermal conductor):
+        Threshold: requires electrical insulator (band_gap_ev >= 3.0 eV) AND
+        high thermal conductivity (thermal_cond_w_mk >= 50.0 W/(m*K)).
+        Returns 0.0 if either threshold is not met.
+        """
+        if self.band_gap_ev < 3.0 or self.thermal_cond_w_mk < 50.0:
             return 0.0
-        insulator_factor = min(self.band_gap_ev / 4.5, 1.3)
-        heat_factor = min(self.thermal_cond_w_mk / 95.0, 1.2)
-        return min(100.0, 82.0 * insulator_factor * heat_factor)
+        bg_term = min((self.band_gap_ev - 3.0) / 3.5, 1.0)
+        tc_term = min((self.thermal_cond_w_mk - 50.0) / 235.0, 1.0)
+        return round(50.0 + 25.0 * bg_term + 25.0 * tc_term, 1)
 
     @property
-    def anomaly_tough_superhard(self) -> float:
-        spec_hard = self.vickers_hardness_gpa / self.density_g_cm3
-        tough_bonus = max(0.2, min((self.pugh_ratio - 1.15) / 0.55, 1.4))
-        return min(100.0, spec_hard * tough_bonus * 11.2)
+    def heuristic_damage_tolerant_hard(self) -> float:
+        """
+        Heuristic 2 (Damage-tolerant hard ceramic / nanolaminate):
+        Threshold: requires elastic hardness estimate vickers_hardness_gpa >= 15.0 GPa,
+        Pugh ratio B/G >= 1.35 (above brittle ceramics like B4C at 1.25),
+        and density_g_cm3 <= 5.0 g/cm^3.
+        Returns 0.0 if any threshold is not met.
+        """
+        if (
+            self.vickers_hardness_gpa < 15.0
+            or self.pugh_ratio < 1.35
+            or self.density_g_cm3 > 5.0
+        ):
+            return 0.0
+        hv_term = min((self.vickers_hardness_gpa - 15.0) / 15.0, 1.0)
+        pugh_term = min((self.pugh_ratio - 1.35) / 0.40, 1.0)
+        return round(50.0 + 30.0 * hv_term + 20.0 * pugh_term, 1)
 
     @property
-    def anomaly_zero_negative_thermal(self) -> float:
-        cte_distance = max(0.0, 6.5 - abs(self.thermal_expansion_ppm + 0.5))
-        neg_bonus = 1.25 if self.thermal_expansion_ppm <= 0.5 else 1.0
-        stiff_factor = min(self.youngs_modulus_gpa / 220.0, 1.2)
-        return min(100.0, (cte_distance / 6.5) * 78.0 * neg_bonus * stiff_factor)
+    def heuristic_low_thermal_expansion(self) -> float:
+        """
+        Heuristic 3 (Negative or near-zero thermal expansion):
+        Threshold: requires linear thermal expansion thermal_expansion_ppm <= 2.0 ppm/K.
+        Returns 0.0 if thermal_expansion_ppm > 2.0 ppm/K.
+        """
+        if self.thermal_expansion_ppm > 2.0:
+            return 0.0
+        cte_term = min((2.0 - self.thermal_expansion_ppm) / 12.0, 1.0)
+        return round(50.0 + 50.0 * cte_term, 1)
 
     @property
-    def anomaly_auxetic_shock(self) -> float:
-        low_poisson = max(0.0, 0.26 - self.poisson_ratio) / 0.20
-        light_factor = 3.5 / max(self.density_g_cm3, 1.8)
-        return min(100.0, low_poisson * light_factor * 72.0)
+    def heuristic_auxetic(self) -> float:
+        """
+        Heuristic 4 (Auxetic material):
+        Threshold: uses the strict definition of auxetic (poisson_ratio < 0.0).
+        Returns 0.0 if poisson_ratio >= 0.0.
+        """
+        if self.poisson_ratio >= 0.0:
+            return 0.0
+        aux_term = min(abs(self.poisson_ratio) / 0.25, 1.0)
+        return round(50.0 + 50.0 * aux_term, 1)
 
-    def detect_breakthrough_profile(self) -> Tuple[str, float, List[str], str]:
-        checks = [
+    def evaluate_heuristics(self) -> Tuple[str, float, List[str], str]:
+        """
+        Evaluates all four thresholded heuristics.
+        If none reaches HEURISTIC_THRESHOLD (50.0), returns ("no anomaly", 0.0, [], ...).
+        Placeholder rows never receive application areas.
+        """
+        candidates = [
             (
-                "Dielectric Heat Superhighway",
-                self.anomaly_dielectric_heat,
-                ["AI Microchip Cooling", "High-Power Lasers", "EV Power Inverters", "Quantum Computing Substrates"],
-                f"Conducts heat at {self.thermal_cond_w_mk} W/mK while blocking electricity ({self.band_gap_ev} eV band gap)."
+                "Dielectric thermal conductor",
+                self.heuristic_dielectric_heat,
+                ["Electronic packaging substrates", "Power-electronics heat spreaders"],
+                f"Band gap {self.band_gap_ev} eV (>=3.0 eV) with thermal conductivity {self.thermal_cond_w_mk} W/m-K (>=50 W/m-K).",
             ),
             (
-                "Shatter-Proof Superhard Hybrid",
-                self.anomaly_tough_superhard,
-                ["Multi-Hit Ballistic Armor", "Crack-Free Metal 3D Printing", "Hypersonic Vehicles", "Eternal Cutting/Mining Tools"],
-                f"Combines {self.vickers_hardness_gpa:.1f} GPa hardness at {self.density_g_cm3} g/cc with ductile Pugh ratio ({self.pugh_ratio:.2f})."
+                "High-stiffness machinable/hard phase",
+                self.heuristic_damage_tolerant_hard,
+                ["Wear-resistant structural components", "Thermal-shock-Cycling refractory parts"],
+                f"Elastic hardness estimate {self.vickers_hardness_gpa:.1f} GPa (>=15 GPa) with Pugh ratio {self.pugh_ratio:.2f} (>=1.35) and density {self.density_g_cm3} g/cm^3 (<=5.0).",
             ),
             (
-                "Zero / Negative Thermal Expansion (NTE)",
-                self.anomaly_zero_negative_thermal,
-                ["Space Telescope Optics", "Zero-Warp 3D Printing Additive", "Semiconductor Lithography", "Precision Robotics"],
-                f"Thermal expansion of {self.thermal_expansion_ppm:+.1f} ppm/K prevents warping/cracking across extreme temperature swings."
+                "Negative / low thermal expansion",
+                self.heuristic_low_thermal_expansion,
+                ["Athermal optical mounts", "Low-expansion composite fillers"],
+                f"Linear thermal expansion {self.thermal_expansion_ppm:+.1f} ppm/K (<=2.0 ppm/K).",
             ),
             (
-                "Auxetic Shockwave Metamaterial",
-                self.anomaly_auxetic_shock,
-                ["Blast & Impact Shielding", "Acoustic/Sonar Cloaking", "Aerospace Structural Damping", "Biomechanics"],
-                f"Unusually low Poisson ratio ({self.poisson_ratio:.2f}) resists indentation and disperses mechanical shockwaves."
+                "Auxetic (negative Poisson ratio)",
+                self.heuristic_auxetic,
+                ["Indentation-resistant pads", "Acoustic/mechanical dampers"],
+                f"Negative isotropic Poisson ratio ({self.poisson_ratio:+.3f} < 0.0).",
             ),
         ]
-        best_title, raw_anomaly, industries, reason = max(checks, key=lambda x: x[1])
-        cost_mult = 1.08 if self.raw_cost_per_kg <= 3.5 else (1.0 / (1.0 + 0.035 * max(0.0, self.raw_cost_per_kg - 4.0)))
-        final_score = min(99.8, raw_anomaly * cost_mult)
-        return best_title, final_score, industries, reason
+        best_label, best_score, areas, summary = max(candidates, key=lambda item: item[1])
+        if best_score < HEURISTIC_THRESHOLD:
+            return (
+                "no anomaly",
+                0.0,
+                [],
+                "No heuristic threshold met (all heuristic scores < 50.0).",
+            )
+        if self.placeholder:
+            return best_label, best_score, [], f"[UNVERIFIED PLACEHOLDER] {summary}"
+        return best_label, best_score, areas, summary
 
 
 def get_universal_catalog() -> List[UniversalCompound]:
@@ -377,7 +430,6 @@ def generate_placeholder_candidates(
         idx = start_index + offset
         m1, m2 = rng.sample(cations, 2)
         x1, x2 = rng.sample(anions, 2)
-        # Finalize composition first so formula, name, and density always match
         comp: Dict[str, float] = {
             m1: float(rng.randint(1, 3)),
             m2: float(rng.randint(1, 2)),
@@ -431,15 +483,40 @@ def main(argv: Optional[List[str]] = None) -> None:
     args = parser.parse_args(argv)
 
     catalog = get_universal_catalog()
-    for c in catalog:
-        print(f"{c.name}: cost=${c.raw_cost_per_kg:.2f}/kg, source={c.source}")
+    ranked = sorted(catalog, key=lambda c: c.evaluate_heuristics()[1], reverse=True)
+
+    print("=" * 118)
+    print("  LITERATURE-SOURCED MATERIALS CATALOG: DERIVED PROPERTIES & HEURISTIC SCORES")
+    print("=" * 118)
+    print(
+        f"{'Rank':<4} | {'Material':<42} | {'Cost/kg':<9} | {'Poisson':<7} | "
+        f"{'Top Heuristic Classification':<36} | {'Score'}"
+    )
+    print("-" * 118)
+    for idx, c in enumerate(ranked, 1):
+        label, score, areas, _ = c.evaluate_heuristics()
+        print(
+            f"#{idx:<3} | {c.name[:42]:<42} | ${c.raw_cost_per_kg:>7.2f} | "
+            f"{c.poisson_ratio:>+7.3f} | {label:<36} | {score:>5.1f}"
+        )
+        if areas:
+            print(f"     └─ Possible application areas: {', '.join(areas)}")
+        print(f"     └─ Source: {c.source}")
+    print("=" * 118)
 
     if args.placeholders > 0:
         rng = random.Random(args.seed)
         placeholders = generate_placeholder_candidates(count=args.placeholders, rng=rng)
-        print("\n--- SYNTHETIC PLACEHOLDERS (UNVERIFIED, UNRANKED) ---")
+        print("\n" + "=" * 118)
+        print("  SYNTHETIC PLACEHOLDER CANDIDATES (UNVERIFIED RANDOM NUMBERS - UNRANKED)")
+        print("=" * 118)
         for p in placeholders:
-            print(f"[PLACEHOLDER] {p.name} | formula={p.formula} | cost=${p.raw_cost_per_kg:.2f}/kg")
+            label, score, _, _ = p.evaluate_heuristics()
+            print(
+                f"[PLACEHOLDER] {p.name:<38} | formula={p.formula:<12} | "
+                f"cost=${p.raw_cost_per_kg:>6.2f}/kg | heuristic={label} ({score:.1f})"
+            )
+        print("=" * 118)
 
 
 if __name__ == "__main__":
