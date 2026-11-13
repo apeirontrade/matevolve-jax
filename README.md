@@ -1,26 +1,39 @@
-# MatEvolve-JAX: Multi-Objective Discovery of Low-Cost Structural Hybrids & Composites
+# MatEvolve-JAX: Universal Physics Anomaly & Compound Discovery Engine
 
-**MatEvolve-JAX** is an open-source computational materials discovery and Recursive Self-Improvement (RSI) screening pipeline designed for **Google Cloud TPUs** (`JAX`, `JAX-MD`, and `FunSearch`-style evolutionary search).
+**MatEvolve-JAX** is an industry-agnostic computational materials discovery and Recursive Self-Improvement (RSI) screening pipeline designed for **Google Cloud TPUs** (`JAX`, `JAX-MD`, and `FunSearch`-style evolutionary search).
 
-It screens and evolves inorganic crystal structures (starting from Google DeepMind's **GNoME** 380,000+ stable materials catalog and **MAX/MAB-phase atomic hybrids**) across four practical, non-medical manufacturing objectives:
-
-1. **Ultra-Low Raw Material Cost ($\$/\text{kg}$):** Prioritizes earth-abundant, supply-chain-safe elements ($\text{Fe, Al, Si, B, C, N, Mg, Mn, Ca}$) over expensive rare-earth or precious metals.
-2. **Additive Manufacturing (3D Printing) Printability:** Evaluates thermal shock resistance and solidification cracking susceptibility for laser powder-bed fusion (LPBF) and nano-reinforced composite resins.
-3. **Ballistic & Impact Toughness (Hardness + Ductility):** Identifies "MAX/MAB-phase" atomic hybrids and cermet reinforcements that break the traditional hardness-brittleness trade-off (high Vickers hardness $H_v$ paired with ductile Pugh's ratio $B/G$).
-4. **Vehicle Lightweighting (Specific Stiffness & Strength):** Maximizes stiffness-to-weight ($E/\rho$) and strength-to-weight ratios for structural automotive and aerospace frames.
+Instead of locking into a single industry, **MatEvolve-JAX** evaluates candidate crystal compounds (starting from Google DeepMind's **GNoME** 380,000+ stable materials catalog, **MAX/MAB-phase atomic hybrids**, and **2D van der Waals monolayers**) across a **12-dimensional fundamental physics fingerprint** and automatically detects **"Freaks of Nature" (Physics Trade-Off Breakers)** at ultra-low ingredient cost ($\$/\text{kg}$), mapping each discovery to the industries it unlocks.
 
 ---
 
-## Architecture
+## The 6 Automated Physics Anomaly Detectors
 
-- ** vectorized Multi-Objective Evaluator (`engine.py`):** Computes Pareto-optimal frontiers across cost, density, bulk/shear moduli ($B, G$), Vickers hardness ($H_v$), Pugh's ductility ratio ($B/G$), and thermal shock resistance.
-- **Evolutionary RSI Loop (`FunSearch`-style Mutator):** Iteratively mutates stoichiometry, crystal layering motifs, and scoring heuristics to discover novel low-cost quaternary and ternary hybrid candidates.
-- **TPU Scaling (`JAX` / `vmap` / `pmap`):** Structured for high-throughput batched evaluation and `JAX-MD` molecular dynamics validation on Google Cloud TPU v4/v5e pods via the **TPU Research Cloud (TRC)**.
+1. **💎 Dielectric Heat Superhighways:** Electrical insulators ($\text{Band Gap} > 3.0\text{ eV}$) that conduct heat like metals ($> 80\text{ W/m}\cdot\text{K}$) via coherent phonon transport.
+   - *Unlocked Industries:* 3D AI Microchip Cooling, High-Power Lasers, EV Power Inverters, Quantum Computing Substrates.
+2. **❄️ Zero & Negative Thermal Expansion (NTE) Frameworks:** Rigid crystal lattices that exhibit near-zero or negative thermal expansion ($\text{CTE} \le 0.5\text{ ppm/K}$) across extreme temperature swings.
+   - *Unlocked Industries:* Space Telescope Mirrors, Zero-Warp 3D Printing Additives, EUV Semiconductor Lithography, Precision Robotics.
+3. **🛡️ Shatter-Proof Superhard Atomic Hybrids:** Materials that break the classical hardness–brittleness trade-off—combining high Vickers hardness ($H_v$) and low density with high Pugh ductility ratios ($B/G > 1.55$).
+   - *Unlocked Industries:* Multi-Hit Ballistic Armor, Crack-Free Metal 3D Printing, Hypersonic Leading Edges, Eternal Cutting/Mining Tools.
+4. **🔋 Solid-State Super-Ionic & Phonon-Glass Energy Harvesters:** Earth-abundant crystal channels with rapid room-temperature ion transport ($\text{mS/cm}$) or high Seebeck thermoelectric conversion with ultralow lattice thermal conductivity.
+   - *Unlocked Industries:* Non-Flammable Solid-State Sodium/Magnesium Batteries, Waste-Heat-to-Electricity Generators, Grid Storage.
+5. **🌀 Auxetic Shockwave Metamaterials:** Crystal cages with unusually low or negative Poisson's ratio ($\nu$) that resist indentation and disperse mechanical/acoustic shockwaves.
+   - *Unlocked Industries:* Blast & Impact Shielding, Acoustic/Sonar Cloaking, Aerospace Structural Damping.
+6. **💧 PFAS-Free Superlubricity & Non-Stick Surfaces:** Fluorine-free 2D and hybrid surfaces exhibiting extreme shear slip and hydrophobicity without toxic "forever chemicals."
+   - *Unlocked Industries:* Teflon/PFAS Replacement Coatings, Zero-Wear Wind/Space Bearings, Anti-Icing Aircraft Skins.
+
+---
 
 ## Quickstart
 
+### 1. Run CLI Anomaly Screen
 ```bash
 python3 engine.py
+```
+
+### 2. Launch Interactive Web Discovery Studio
+```bash
+python3 app.py
+# Open http://localhost:8550 in your browser
 ```
 
 ## License
