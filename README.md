@@ -50,6 +50,40 @@ Run the CLI table (sourced catalog only):
 python3 engine.py
 ```
 
+Output of `python3 engine.py`:
+
+```text
+======================================================================================================================
+  LITERATURE-SOURCED MATERIALS CATALOG: DERIVED PROPERTIES & HEURISTIC SCORES
+======================================================================================================================
+Rank | Material                                   | Cost/kg   | Poisson | Top Heuristic Classification         | Score
+----------------------------------------------------------------------------------------------------------------------
+#1   | AlN (Wurtzite Aluminum Nitride)            | $   1.72 |  +0.233 | Dielectric thermal conductor         |  97.9
+     └─ Possible application areas: Electronic packaging substrates, Power-electronics heat spreaders
+     └─ Source: Slack et al., J. Phys. Chem. Solids 48(7), 641-647 (1987), DOI:10.1016/0022-3697(87)90153-3; McNeil et al., J. Am. Ceram. Soc. 76(5), 1132-1136 (1993), DOI:10.1111/j.1151-2916.1993.tb03730.x
+#2   | ZrW2O8 (Alpha-Zirconium Tungstate)         | $  28.52 |  +0.303 | Negative / low thermal expansion     |  94.6
+     └─ Possible application areas: Athermal optical mounts, Low-expansion composite fillers
+     └─ Source: Mary et al., Science 272(5258), 90-92 (1996), DOI:10.1126/science.272.5258.90; Drymiotis et al., Phys. Rev. Lett. 93, 025502 (2004), DOI:10.1103/PhysRevLett.93.025502; Kennedy & White, Solid State Commun. 134(4), 271 (2005), DOI:10.1016/j.ssc.2005.01.031
+#3   | SiO2 (Alpha-Cristobalite)                  | $   1.13 |  -0.164 | Auxetic (negative Poisson ratio)     |  82.8
+     └─ Possible application areas: Indentation-resistant pads, Acoustic/mechanical dampers
+     └─ Source: Yeganeh-Haeri, Weidner & Parise, Science 257(5070), 650-652 (1992), DOI:10.1126/science.257.5070.650; Swainson & Dove, Phys. Chem. Miner. 22, 61 (1995), DOI:10.1007/BF00202681
+#4   | Ti3SiC2 (Titanium Silicon Carbide MAX Phas | $   8.94 |  +0.204 | High-stiffness machinable/hard phase |  64.3
+     └─ Possible application areas: Wear-resistant structural components, Thermal-shock-Cycling refractory parts
+     └─ Source: Barsoum, Prog. Solid State Chem. 28, 201-281 (2000), DOI:10.1016/S0079-6786(00)00006-6; Finkel et al., J. Appl. Phys. 87, 1701 (2000), DOI:10.1063/1.372080
+#5   | MgSiN2 (Magnesium Silicon Nitride)         | $   1.84 |  +0.239 | High-stiffness machinable/hard phase |  62.5
+     └─ Possible application areas: Wear-resistant structural components, Thermal-shock-Cycling refractory parts
+     └─ Source: Bruls et al., J. Phys. Chem. Solids 61, 1285 (2000), DOI:10.1016/S0022-3697(99)00416-3; Bruls et al., J. Eur. Ceram. Soc. 21, 263 (2001), DOI:10.1016/S0955-2219(00)00210-7; de Boer et al., Phys. Rev. B 93, 155205 (2016), DOI:10.1103/PhysRevB.93.155205
+#6   | Ti-6Al-4V (Grade 5 Titanium Alloy Baseline | $  11.61 |  +0.324 | no anomaly                           |   0.0
+     └─ Source: ASM Aerospace Specification Metals (MTP641); Boyer et al., Materials Properties Handbook: Titanium Alloys (ASM International, 1994)
+#7   | B4C (Boron Carbide Ceramic Baseline)       | $ 235.11 |  +0.185 | no anomaly                           |   0.0
+     └─ Source: Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), DOI:10.1111/j.1551-2916.2011.04865.x; Werheit, J. Phys.: Condens. Matter 18, S1065 (2006), DOI:10.1088/0953-8984/18/22/S01
+#8   | Cr2AlC (Chromium Aluminum Carbide MAX Phas | $   6.76 |  +0.239 | no anomaly                           |   0.0
+     └─ Source: Tian et al., Acta Materialia 54(16), 4273-4283 (2006), DOI:10.1016/j.actamat.2006.05.020; Sun et al., Solid State Commun. 129(9), 589-592 (2004), DOI:10.1016/j.ssc.2003.12.008
+#9   | Fe2AlB2 (Iron Aluminum Boride MAB Phase)   | $  41.21 |  +0.231 | no anomaly                           |   0.0
+     └─ Source: Ade & Hillebrecht, Angew. Chem. Int. Ed. 54, 11568 (2015), DOI:10.1002/anie.201505525; Li et al., J. Am. Ceram. Soc. 100(9), 4180 (2017), DOI:10.1111/jace.14945; Verger et al., J. Appl. Phys. 124, 215108 (2018), DOI:10.1063/1.5055964
+======================================================================================================================
+```
+
 Optionally print a separate table of deterministic synthetic placeholder rows:
 
 ```bash
