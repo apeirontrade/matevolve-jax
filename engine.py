@@ -11,12 +11,13 @@ from dataclasses import dataclass, field
 import random
 from typing import Dict, List, Optional, Tuple
 
-# Approximate industrial / supplier elemental prices ($ USD per kg of raw element).
-# Note: This coarse model multiplies atomic weight fractions by elemental prices and
-# ignores chemical precursor form, purity grade, and synthesis/processing costs.
-# Boron price ($300/kg) reflects elemental amorphous boron powder supplier listings (~$280-350/kg):
-#   - https://www.chemicalbook.com/price/Boron-1.htm
-#   - https://sdhshchem.en.made-in-china.com/product/vZFTQAojfIaB/China-Elemental-Amorphous-Boron-Powder-Price-CAS-7440-42-8.html
+# Approximate elemental prices ($ USD per kg) used ONLY for coarse display estimates.
+# Cost does not feed any heuristic.
+# Where available, commodity reference prices and forms are cited to USGS Mineral Commodity
+# Summaries 2026 (DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf);
+# elements not priced in elemental form by USGS MCS 2026 (or where the nominal figure differs
+# from bulk mineral concentrate/compound prices) are explicitly tagged UNSOURCED in
+# ELEMENT_COST_SOURCES below.
 ELEMENT_COST_USD_PER_KG: Dict[str, float] = {
     "Fe": 0.50,   "Si": 2.20,   "Al": 2.40,   "C":  1.50,   "N":  0.40,
     "O":  0.20,   "Mg": 3.10,   "Ca": 2.80,   "Na": 2.50,   "K":  3.00,
@@ -25,6 +26,37 @@ ELEMENT_COST_USD_PER_KG: Dict[str, float] = {
     "Ni": 16.50,  "Mo": 45.00,  "Sn": 29.00,  "W":  40.00,  "Nb": 42.00,
 }
 
+ELEMENT_COST_SOURCES: Dict[str, str] = {
+    "Al": "USGS Mineral Commodity Summaries 2026, p. 22, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Aluminum ingot, U.S. market spot: 127.8 cents/lb = $2.82/kg in 2024; 175 cents/lb = $3.86/kg in 2025e; table nominal $2.40/kg UNSOURCED)",
+    "B": "UNSOURCED ($300.00/kg elemental amorphous boron figure is unsourced; USGS MCS 2026 p. 42, DOI:10.3133/mcs2026 prices refined borates/boric acid import/export at $810/t = $0.81/kg in 2024 and $800/t = $0.80/kg in 2025e, not elemental boron)",
+    "C": "USGS Mineral Commodity Summaries 2026, p. 80, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Natural flake graphite imports $1,420/t = $1.42/kg in 2024, $1,200/t = $1.20/kg in 2025e; table nominal $1.50/kg UNSOURCED)",
+    "Ca": "UNSOURCED ($2.80/kg calcium metal figure is unsourced; USGS MCS 2026 p. 106, DOI:10.3133/mcs2026 prices quicklime CaO at $197/t = $0.20/kg in 2024, not elemental Ca metal)",
+    "Cr": "USGS Mineral Commodity Summaries 2026, p. 52, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Chromium metal imports: $15,615/t = $15.62/kg in 2024, $15,000/t = $15.00/kg in 2025e; table nominal $8.50/kg UNSOURCED)",
+    "Cu": "USGS Mineral Commodity Summaries 2026, p. 58, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Copper cathode COMEX: 414 cents/lb = $9.13/kg in 2024, 460 cents/lb = $10.14/kg in 2025e; table nominal $9.20/kg)",
+    "Fe": "USGS Mineral Commodity Summaries 2026, p. 94, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (No. 1 heavy melting steel scrap: $355/t = $0.36/kg in 2024, $330/t = $0.33/kg in 2025e; table nominal $0.50/kg UNSOURCED)",
+    "K": "UNSOURCED ($3.00/kg elemental potassium metal; USGS MCS 2026 p. 136, DOI:10.3133/mcs2026 prices muriate of potash K2O equivalent at $360/t = $0.36/kg in 2024)",
+    "Mg": "USGS Mineral Commodity Summaries 2026, p. 112, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Primary magnesium metal ingot, China/Europe: $2,700-$3,000/t = $2.70-$3.00/kg in 2024; table nominal $3.10/kg UNSOURCED)",
+    "Mn": "USGS Mineral Commodity Summaries 2026, p. 114, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Electrolytic manganese metal imports; table nominal $2.10/kg UNSOURCED)",
+    "Mo": "USGS Mineral Commodity Summaries 2026, p. 120, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Molybdenum contained in technical-grade molybdic oxide: $47.20/kg in 2024; table nominal $45.00/kg UNSOURCED)",
+    "N": "UNSOURCED ($0.40/kg nitrogen; USGS MCS 2026 p. 124, DOI:10.3133/mcs2026 prices anhydrous ammonia NH3 Gulf Coast at $495/short ton = $0.55/kg in 2024, $510/st = $0.56/kg in 2025e)",
+    "Na": "UNSOURCED ($2.50/kg sodium metal; USGS MCS 2026 p. 162, DOI:10.3133/mcs2026 prices soda ash Na2CO3 at $205.51/t = $0.21/kg in 2024, not metallic Na)",
+    "Nb": "USGS Mineral Commodity Summaries 2026, p. 122, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Niobium contained in ferroniobium imports; table nominal $42.00/kg UNSOURCED)",
+    "Ni": "USGS Mineral Commodity Summaries 2026, p. 122/126, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Nickel LME cash: $16,812/t = $16.81/kg in 2024; table nominal $16.50/kg UNSOURCED)",
+    "O": "UNSOURCED ($0.20/kg industrial oxygen estimate)",
+    "P": "UNSOURCED ($3.20/kg elemental yellow phosphorus; USGS MCS 2026 p. 130, DOI:10.3133/mcs2026 prices marketable phosphate rock at $101/t = $0.10/kg in 2024, not elemental P)",
+    "S": "UNSOURCED ($0.30/kg elemental sulfur; USGS MCS 2026 p. 170, DOI:10.3133/mcs2026 prices elemental sulfur f.o.b. plant at ~$73/t = $0.07/kg in 2024)",
+    "Si": "USGS Mineral Commodity Summaries 2026, p. 158, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Silicon metal <99.99% Si: 158 cents/lb = $3.48/kg in 2024, 140 cents/lb = $3.09/kg in 2025e; table nominal $2.20/kg UNSOURCED)",
+    "Sn": "USGS Mineral Commodity Summaries 2026, p. 180, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Refined tin metal LME/New York dealer: ~$30/kg in 2024; table nominal $29.00/kg UNSOURCED)",
+    "Ti": "USGS Mineral Commodity Summaries 2026, p. 182, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Titanium sponge metal imports, unit value: $12.10/kg in 2024, $11.50/kg in 2025e)",
+    "V": "USGS Mineral Commodity Summaries 2026, p. 190, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Ferrovanadium U.S. 78-82% V: $29.39/kg V in 2024, $28.70/kg V in 2025e; V2O5 Chinese 98%: $5.72/lb = $12.61/kg in 2024; table nominal $28.00/kg UNSOURCED)",
+    "W": "USGS Mineral Commodity Summaries 2026, p. 188, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Tungsten concentrate / ammonium paratungstate APT ~$330-$340/mtu WO3 in 2024; table nominal $40.00/kg W metal powder UNSOURCED)",
+    "Zn": "USGS Mineral Commodity Summaries 2026, p. 196, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Special High Grade zinc metal LME/North American: ~134 cents/lb = $2.95/kg in 2024; table nominal $2.90/kg)",
+    "Zr": "USGS Mineral Commodity Summaries 2026, p. 198, DOI:10.3133/mcs2026, https://pubs.usgs.gov/periodicals/mcs2026/mcs2026.pdf (Unwrought zirconium powder/sponge imports: $29/kg in 2024, $25/kg in 2025e; table nominal $22.00/kg UNSOURCED)",
+}
+
+# Standard abridged atomic weights rounded to two decimal places:
+# CIAAW 2024 (https://ciaaw.org/abridged-atomic-weights.htm; Prohaska et al., Pure Appl. Chem.
+# 94(5), 573-600, 2022, DOI:10.1515/pac-2019-0603).
 ATOMIC_MASS: Dict[str, float] = {
     "Fe": 55.85, "Si": 28.09, "Al": 26.98, "C": 12.01, "N": 14.01,
     "O":  16.00, "Mg": 24.31, "Ca": 40.08, "Na": 22.99, "K": 39.10,
@@ -155,7 +187,8 @@ class UniversalCompound:
     def heuristic_auxetic(self) -> float:
         """
         Heuristic 4 (Auxetic material):
-        Threshold: uses the strict definition of auxetic (poisson_ratio < 0.0).
+        Threshold: uses the strict definition of auxetic (poisson_ratio < 0.0;
+        Evans, Endeavour 15(4), 170-174, 1991, DOI:10.1016/0160-9327(91)90123-S).
         Returns 0.0 if poisson_ratio >= 0.0.
         """
         if self.poisson_ratio >= 0.0:

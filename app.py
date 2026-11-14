@@ -134,8 +134,8 @@ HTML_PAGE = """<!DOCTYPE html>
       <button class="lens-btn" onclick="setLens('auxetic', this)">Auxetic (Negative Poisson Ratio)</button>
 
       <div class="slider-group">
-        <label><span>Max Raw Element Cost ($/kg)</span><span id="v_cost">$250.00/kg</span></label>
-        <input type="range" id="s_cost" min="1.0" max="250.0" step="1.0" value="250.0" oninput="render()">
+        <label><span>Max Raw Element Cost ($/kg)</span><span id="v_cost">$500.00/kg</span></label>
+        <input type="range" id="s_cost" min="1.0" max="500.0" step="1.0" value="500.0" oninput="render()">
       </div>
       <div class="slider-group">
         <label><span>Max Density (g/cm³)</span><span id="v_dens">6.5 g/cc</span></label>
