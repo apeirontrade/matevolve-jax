@@ -150,11 +150,10 @@ HTML_PAGE = """<!DOCTYPE html>
     </div>
 
     <div class="card">
-      <h3 style="margin:0 0 10px; font-size:14px;">Literature-Sourced Catalog (Ranked by Active Heuristic)</h3>
+      <h3 style="margin:0 0 10px; font-size:14px;">Literature-Sourced Catalog (Grouped by Heuristic Cut-Off)</h3>
       <table>
         <thead>
           <tr>
-            <th>Rank</th>
             <th>Material</th>
             <th>Raw Cost</th>
             <th>Poisson</th>
@@ -228,10 +227,25 @@ function render() {
   document.getElementById('v_cost').innerText = '$' + maxCost.toFixed(2) + '/kg';
   document.getElementById('v_dens').innerText = maxDens.toFixed(1) + ' g/cc';
 
-  const sourced = compounds
+  const heuristicOrder = [
+    'Dielectric thermal conductor',
+    'Elastic screen: Hv estimate >= 15, B/G >= 1.35, density <= 5',
+    'Negative / low thermal expansion',
+    'Auxetic (negative Poisson ratio)'
+  ];
+  const filteredSourced = compounds
     .filter(c => !c.placeholder && c.cost_per_kg <= maxCost && c.density <= maxDens)
-    .map(c => ({...c, active_score: c.scores[currentLens]}))
-    .sort((a, b) => b.active_score - a.active_score);
+    .map(c => ({...c, active_score: c.scores[currentLens]}));
+  const passing = filteredSourced
+    .filter(c => c.active_score > 0)
+    .sort((a, b) => {
+      const ga = heuristicOrder.indexOf(a.heuristic_label);
+      const gb = heuristicOrder.indexOf(b.heuristic_label);
+      if (ga !== gb) return ga - gb;
+      return b.active_score - a.active_score;
+    });
+  const noCutoff = filteredSourced.filter(c => !(c.active_score > 0));
+  const sourced = [...passing, ...noCutoff];
 
   const placeholders = compounds
     .filter(c => c.placeholder && c.cost_per_kg <= maxCost && c.density <= maxDens)
@@ -239,7 +253,7 @@ function render() {
 
   const tbodySourced = document.getElementById('tbody-sourced');
   tbodySourced.innerHTML = '';
-  sourced.forEach((c, idx) => {
+  sourced.forEach((c) => {
     const tr = document.createElement('tr');
     tr.onclick = () => { selected = c; renderInspector(); };
     const pillClass = c.heuristic_label === 'no anomaly' ? 'pill pill-none' : 'pill';
@@ -247,7 +261,6 @@ function render() {
       .map(a => `<span class="app-tag">${escapeHtml(a)}</span>`)
       .join('') || '<span style="color:var(--muted)">—</span>';
     tr.innerHTML = `
-      <td><b>#${idx + 1}</b></td>
       <td><b>${escapeHtml(c.name)}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(c.structure_class)}</span></td>
       <td>$${escapeHtml(c.cost_per_kg.toFixed(2))}</td>
       <td>${escapeHtml(c.poisson_ratio.toFixed(3))}</td>

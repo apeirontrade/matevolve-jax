@@ -536,27 +536,62 @@ def main(argv: Optional[List[str]] = None) -> None:
     args = parser.parse_args(argv)
 
     catalog = get_universal_catalog()
-    ranked = sorted(catalog, key=lambda c: c.evaluate_heuristics()[1], reverse=True)
+    heuristic_order = [
+        "Dielectric thermal conductor",
+        "Elastic screen: Hv estimate >= 15, B/G >= 1.35, density <= 5",
+        "Negative / low thermal expansion",
+        "Auxetic (negative Poisson ratio)",
+    ]
 
-    print("=" * 118)
-    print("  LITERATURE-SOURCED MATERIALS CATALOG: DERIVED PROPERTIES & HEURISTIC SCORES")
-    print("=" * 118)
+    passing_by_heuristic: Dict[str, List[UniversalCompound]] = {h: [] for h in heuristic_order}
+    no_cutoff_rows: List[UniversalCompound] = []
+    for entry in catalog:
+        label, score, _, _ = entry.evaluate_heuristics()
+        if score is not None and score > 0.0 and label in passing_by_heuristic:
+            passing_by_heuristic[label].append(entry)
+        else:
+            no_cutoff_rows.append(entry)
+
+    print("=" * 120)
+    print("  LITERATURE-SOURCED MATERIALS CATALOG: DERIVED PROPERTIES & HEURISTIC CUT-OFFS")
+    print("=" * 120)
     print(
-        f"{'Rank':<4} | {'Material':<42} | {'Cost/kg':<9} | {'Poisson':<7} | {'Est. Hv':<7} | "
+        f"{'Material':<44} | {'Cost/kg':<9} | {'Poisson':<7} | {'Est. Hv':<7} | "
         f"{'Top Heuristic Classification':<36} | {'Score'}"
     )
-    print("-" * 128)
-    for idx, c in enumerate(ranked, 1):
-        label, score, areas, _ = c.evaluate_heuristics()
-        hv_str = f"{c.vickers_hardness_gpa:>6.1f}G" if c.vickers_hardness_gpa is not None else "    n/a"
-        print(
-            f"#{idx:<3} | {c.name[:42]:<42} | ${c.raw_cost_per_kg:>7.2f} | "
-            f"{c.poisson_ratio:>+7.3f} | {hv_str:<7} | {label:<36} | {score:>5.1f}"
+    print("-" * 120)
+
+    print("[Rows passing a documented heuristic cut-off (grouped by heuristic)]")
+    for h_name in heuristic_order:
+        group = sorted(
+            passing_by_heuristic[h_name],
+            key=lambda item: item.evaluate_heuristics()[1] or 0.0,
+            reverse=True,
         )
-        if areas:
-            print(f"     └─ Possible application areas: {', '.join(areas)}")
+        for c in group:
+            label, score, areas, _ = c.evaluate_heuristics()
+            hv_str = f"{c.vickers_hardness_gpa:>6.1f}G" if c.vickers_hardness_gpa is not None else "    n/a"
+            score_str = f"{score:>5.1f}" if score is not None else "  n/a"
+            print(
+                f"{c.name[:44]:<44} | ${c.raw_cost_per_kg:>7.2f} | "
+                f"{c.poisson_ratio:>+7.3f} | {hv_str:<7} | {label:<36} | {score_str}"
+            )
+            if areas:
+                print(f"     └─ Possible application areas: {', '.join(areas)}")
+            print(f"     └─ Source: {c.source}")
+
+    print("-" * 120)
+    print("[no cut-off met]")
+    for c in no_cutoff_rows:
+        label, score, _, _ = c.evaluate_heuristics()
+        hv_str = f"{c.vickers_hardness_gpa:>6.1f}G" if c.vickers_hardness_gpa is not None else "    n/a"
+        score_str = f"{score:>5.1f}" if score is not None else "  n/a"
+        print(
+            f"{c.name[:44]:<44} | ${c.raw_cost_per_kg:>7.2f} | "
+            f"{c.poisson_ratio:>+7.3f} | {hv_str:<7} | {label:<36} | {score_str}"
+        )
         print(f"     └─ Source: {c.source}")
-    print("=" * 118)
+    print("=" * 120)
 
     if args.placeholders > 0:
         rng = random.Random(args.seed)
