@@ -124,7 +124,7 @@ class UniversalCompound:
         """
         Heuristic 2 (High-modulus moderate-Pugh phase):
         Threshold: requires shear_modulus_gpa >= 110.0 GPa, Pugh ratio B/G >= 1.35
-        (above brittle ceramics like B4C at 1.25), and density_g_cm3 <= 5.0 g/cm^3.
+        (above brittle ceramics like B4C at 1.24), and density_g_cm3 <= 5.0 g/cm^3.
         Does not use Chen's hardness estimate, which overpredicts indentation hardness
         for machinable MAX phases such as Ti3SiC2.
         Returns 0.0 if any threshold is not met.
@@ -242,19 +242,20 @@ def get_universal_catalog() -> List[UniversalCompound]:
             structure_class="Rhombohedral Covalent Ceramic (Baseline)",
             composition={"B": 4, "C": 1},
             density_g_cm3=2.52,
-            bulk_modulus_gpa=241.0,
-            shear_modulus_gpa=193.0,
-            thermal_expansion_ppm=5.6,
+            bulk_modulus_gpa=247.0,
+            shear_modulus_gpa=200.0,
+            thermal_expansion_ppm=5.65,
             thermal_cond_w_mk=30.0,
             band_gap_ev=2.09,
-            source="Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), DOI:10.1111/j.1551-2916.2011.04865.x; Dodd, Saunders & James, J. Mater. Sci. 37(13), 2731-2736 (2002), DOI:10.1023/A:1015825318086; Werheit, J. Phys.: Condens. Matter 18(47), 10655-10662 (2006), DOI:10.1088/0953-8984/18/47/011",
+            source="Gieske, Aselage & Emin, AIP Conf. Proc. 231, 376-379 (1991), DOI:10.1063/1.40854, as tabulated in Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), DOI:10.1111/j.1551-2916.2011.04865.x; Yakel, J. Appl. Cryst. 6, 471-472 (1973), DOI:10.1107/S0021889873009246; Mahagin et al., HEDL-TME 73-78 (1973), DOI:10.2172/4389842, https://www.osti.gov/servlets/purl/4389842; Werheit, J. Phys.: Condens. Matter 18(47), 10655-10662 (2006), DOI:10.1088/0953-8984/18/47/011",
             property_sources={
-                "density_g_cm3": "Domnich et al. 2011, Sec. II p. 3606, DOI:10.1111/j.1551-2916.2011.04865.x (2.52 g/cm^3)",
-                "bulk_modulus_gpa": "Dodd, Saunders & James 2002, Abstract & Table I p. 2733, DOI:10.1023/A:1015825318086 (241 GPa at 295 K)",
-                "shear_modulus_gpa": "Dodd, Saunders & James 2002, Abstract & Table I p. 2733, DOI:10.1023/A:1015825318086 (193 GPa at 295 K)",
-                "thermal_expansion_ppm": "Domnich et al. 2011, Sec. II, DOI:10.1111/j.1551-2916.2011.04865.x (5.6e-6 /K)",
-                "thermal_cond_w_mk": "Domnich et al. 2011, Sec. II p. 3610, DOI:10.1111/j.1551-2916.2011.04865.x (~30 W/m-K at 300 K)",
-                "band_gap_ev": "Werheit 2006, Abstract & Sec. 2 Fig. 1 p. 10656, DOI:10.1088/0953-8984/18/47/011 (2.09 eV)",
+                "composition": "B4C (20 at.% C), carbon-rich limit of the rhombohedral boron carbide solid-solution range (~9 to 20 at.% C): Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), abstract, DOI:10.1111/j.1551-2916.2011.04865.x; Yakel, J. Appl. Cryst. 6, 471-472 (1973), abstract, DOI:10.1107/S0021889873009246",
+                "density_g_cm3": "2.52 g/cm^3 (theoretical crystal density at 300 K): UNSOURCED in paywalled Domnich et al. 2011, DOI:10.1111/j.1551-2916.2011.04865.x; cf. measured 2.49 g/cm^3 at 0.8 vol.% porosity (~2.51 g/cm^3 theoretical) for natural B4C specimen B-H8 in Mahagin et al., HEDL-TME 73-78 (1973), Table I p. 11, DOI:10.2172/4389842, https://www.osti.gov/servlets/purl/4389842",
+                "bulk_modulus_gpa": "247 GPa (measured, polycrystal at room temperature ~300 K, ultrasonic paired with G = 200 GPa): Gieske, Aselage & Emin, AIP Conf. Proc. 231, 376-379 (1991), DOI:10.1063/1.40854, as tabulated in Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), Table IV, DOI:10.1111/j.1551-2916.2011.04865.x (UNSOURCED in paywalled full text)",
+                "shear_modulus_gpa": "200 GPa (measured, polycrystal at room temperature ~300 K, ultrasonic paired with B = 247 GPa): Gieske, Aselage & Emin, AIP Conf. Proc. 231, 376-379 (1991), DOI:10.1063/1.40854, as tabulated in Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), Table IV, DOI:10.1111/j.1551-2916.2011.04865.x (UNSOURCED in paywalled full text)",
+                "thermal_expansion_ppm": "5.65 ppm/K (measured, polycrystal/powder, high-temperature XRD mean linear thermal expansion over 12-940 C): Yakel, J. Appl. Cryst. 6, 471-472 (1973), abstract, DOI:10.1107/S0021889873009246",
+                "thermal_cond_w_mk": "30 W/(m*K) (approx., measured on hot-pressed polycrystal, 26-37 W/(m*K) at 293-300 K depending on sample; exact rounded 30 UNSOURCED): Mahagin, Bates & Baker, HEDL-TME 73-78 (1973), Table I p. 11 & Table A.I pp. A-1 to A-9, DOI:10.2172/4389842, https://www.osti.gov/servlets/purl/4389842",
+                "band_gap_ev": "2.09 eV (measured optical absorption gap at room temperature; reported gaps for B4C range from 0.48 to >3 eV): Werheit, J. Phys.: Condens. Matter 18(47), 10655-10662 (2006), abstract, DOI:10.1088/0953-8984/18/47/011",
             },
             placeholder=False,
         ),
