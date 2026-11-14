@@ -6,6 +6,7 @@ Unit test suite for engine.py and app.py using Python's standard-library unittes
 import io
 import json
 import random
+import re
 from typing import Tuple
 import unittest
 import urllib.error
@@ -98,15 +99,33 @@ class TestEngineAndApp(unittest.TestCase):
             self.assertAlmostEqual(g_recovered, entry.shear_modulus_gpa, places=5)
 
     def test_every_catalog_element_in_both_element_tables(self) -> None:
-        """Ensures both element tables have identical keys and cover all catalog entries."""
+        """
+        Ensures element tables have identical keys, cover all catalog entries,
+        and every property_sources entry contains a DOI, URL, database ID, or UNSOURCED tag.
+        """
         self.assertEqual(
             set(engine.ELEMENT_COST_USD_PER_KG.keys()),
             set(engine.ATOMIC_MASS.keys()),
         )
+        self.assertEqual(
+            set(engine.ELEMENT_COST_USD_PER_KG.keys()),
+            set(engine.ELEMENT_COST_SOURCES.keys()),
+        )
+        citation_pattern = re.compile(
+            r"(10\.\d{4,9}/\S+|https?://\S+|mp-\d+|UNSOURCED)"
+        )
+        for el, cost_src in engine.ELEMENT_COST_SOURCES.items():
+            self.assertRegex(
+                cost_src,
+                citation_pattern,
+                f"Element {el} cost source lacks DOI, URL, database id, or UNSOURCED tag",
+            )
         for entry in engine.get_catalog():
             self.assertFalse(entry.placeholder)
             self.assertTrue(entry.source)
+            self.assertRegex(entry.source, citation_pattern)
             for prop in (
+                "composition",
                 "density_g_cm3",
                 "bulk_modulus_gpa",
                 "shear_modulus_gpa",
@@ -115,6 +134,13 @@ class TestEngineAndApp(unittest.TestCase):
                 "band_gap_ev",
             ):
                 self.assertIn(prop, entry.property_sources)
+                src_text = entry.property_sources[prop]
+                self.assertTrue(src_text)
+                self.assertRegex(
+                    src_text,
+                    citation_pattern,
+                    f"{entry.name}.{prop} source lacks DOI, URL, database id, or UNSOURCED tag: {src_text}",
+                )
             for el in entry.composition:
                 self.assertIn(el, engine.ELEMENT_COST_USD_PER_KG)
                 self.assertIn(el, engine.ATOMIC_MASS)
