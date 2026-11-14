@@ -144,7 +144,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <hr style="border:0; border-top:1px solid var(--border); margin:14px 0;">
       <p style="font-size:11.5px; color:var(--muted); line-height:1.5;">
         <b>Notes:</b><br>
-        • Rows below threshold (50.0) are labelled <code>no anomaly</code>.<br>
+        • Each heuristic either passes its documented property cut-offs (score 50–100) or not (<code>no anomaly</code>, no cut-off met).<br>
         • Synthetic placeholder rows are unverified random numbers and are listed separately without rankings or application areas.
       </p>
     </div>

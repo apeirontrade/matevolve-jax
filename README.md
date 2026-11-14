@@ -22,7 +22,7 @@ Despite the repository name (`matevolve-jax`), **the current codebase uses only 
    - `heuristic_low_thermal_expansion`: Scores materials with negative or near-zero linear thermal expansion ($\alpha \le 2.0\text{ ppm/K}$).
    - `heuristic_damage_tolerant_hard`: Scores materials (`High-modulus moderate-Pugh phase`) with high shear stiffness ($G \ge 110.0\text{ GPa}$), moderate-to-high Pugh ratio ($B/G \ge 1.35$), and density $\rho \le 5.0\text{ g/cm}^3$ (does not use Chen's hardness estimate, which overpredicts machinable MAX phases).
    - `heuristic_auxetic`: Scores materials with a strictly negative isotropic Poisson's ratio ($\nu < 0.0$).
-   - If a material does not reach the threshold (`50.0`) on any heuristic, `evaluate_heuristics()` returns `"no anomaly"` and attaches no application areas.
+   - Each heuristic either passes its documented property cut-offs (producing a score in 50–100) or does not (returning `0.0`). When no heuristic cut-off is met, `evaluate_heuristics()` returns `"no anomaly"` (`no cut-off met`) and attaches no application areas.
 4. **Opt-In Seeded Placeholder Generator (`engine.py`):**
    - `generate_placeholder_candidates(count, rng)` generates synthetic, unverified test rows using a caller-supplied `random.Random` instance.
    - Placeholder rows are flagged with `placeholder=True`, carry no literature citations or application areas, are never ranked alongside sourced rows, and are only printed on the CLI when `--placeholders N` is passed.

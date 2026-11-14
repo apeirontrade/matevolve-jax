@@ -65,9 +65,6 @@ ATOMIC_MASS: Dict[str, float] = {
     "Ni": 58.69, "Mo": 95.95, "Sn": 118.71, "W": 183.84, "Nb": 92.91,
 }
 
-# Minimum heuristic score (0-100 scale) required to flag a property anomaly.
-HEURISTIC_THRESHOLD: float = 50.0
-
 
 @dataclass
 class UniversalCompound:
@@ -205,11 +202,11 @@ class UniversalCompound:
         aux_term = min(abs(self.poisson_ratio) / 0.25, 1.0)
         return round(50.0 + 50.0 * aux_term, 1)
 
-    def evaluate_heuristics(self) -> Tuple[str, float, List[str], str]:
+    def evaluate_heuristics(self) -> Tuple[str, Optional[float], List[str], str]:
         """
-        Evaluates all four thresholded heuristics.
-        If none reaches HEURISTIC_THRESHOLD (50.0), returns ("no anomaly", 0.0, [], ...).
-        Placeholder rows never receive application areas.
+        Evaluates all four heuristics. Each heuristic either passes its documented
+        property cut-offs (producing a score in 50-100) or fails them (returning 0.0).
+        When no cut-off is met (all scores 0.0), returns ("no anomaly", 0.0, [], ...).
         """
         candidates = [
             (
@@ -243,12 +240,12 @@ class UniversalCompound:
             ),
         ]
         best_label, best_score, areas, summary = max(candidates, key=lambda item: item[1])
-        if best_score < HEURISTIC_THRESHOLD:
+        if best_score == 0.0:
             return (
                 "no anomaly",
                 0.0,
                 [],
-                "No heuristic threshold met (all heuristic scores < 50.0).",
+                "No heuristic cut-off met (passing a heuristic's documented cut-offs yields a score in 50-100).",
             )
         if self.placeholder:
             return best_label, best_score, [], f"[UNVERIFIED PLACEHOLDER] {summary}"
