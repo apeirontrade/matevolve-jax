@@ -163,6 +163,12 @@ class TestEngineAndApp(unittest.TestCase):
             self.assertIsNone(score)
             self.assertEqual(areas, [])
 
+        for bad_count in (-1, 21):
+            with self.assertRaises(ValueError):
+                engine.generate_placeholder_candidates(count=bad_count)
+            with self.assertRaises(SystemExit):
+                engine.main(["--placeholders", str(bad_count)])
+
     def test_no_baseline_is_labelled_an_anomaly(self) -> None:
         """Verifies that Ti-6Al-4V and B4C baselines return 'no anomaly' and score 0.0."""
         catalog = {c.name: c for c in engine.get_catalog()}

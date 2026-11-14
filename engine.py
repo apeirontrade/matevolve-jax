@@ -481,6 +481,9 @@ def get_catalog() -> List[MaterialEntry]:
     ]
 
 
+MAX_PLACEHOLDER_COUNT: int = 20
+
+
 def generate_placeholder_candidates(
     count: int = 4,
     rng: Optional[random.Random] = None,
@@ -490,8 +493,13 @@ def generate_placeholder_candidates(
     Generates synthetic, unverified placeholder rows using a deterministic
     `random.Random` instance for UI/pipeline testing.
     Every returned entry has `placeholder=True` and carries no literature citations.
+    Raises ValueError if count < 0 or count > MAX_PLACEHOLDER_COUNT (20).
     """
-    if count <= 0:
+    if count < 0 or count > MAX_PLACEHOLDER_COUNT:
+        raise ValueError(
+            f"Placeholder count must be between 0 and {MAX_PLACEHOLDER_COUNT}, got {count}."
+        )
+    if count == 0:
         return []
     if rng is None:
         rng = random.Random(0)
@@ -546,7 +554,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         "--placeholders",
         type=int,
         default=0,
-        help="Number of synthetic placeholder rows to generate in a separate unranked table (default: 0).",
+        help="Number of synthetic placeholder rows to generate in a separate unranked table (0 to 20, default: 0).",
     )
     parser.add_argument(
         "--seed",
@@ -555,6 +563,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         help="Random seed for deterministic placeholder generation (default: 42).",
     )
     args = parser.parse_args(argv)
+    if args.placeholders < 0 or args.placeholders > MAX_PLACEHOLDER_COUNT:
+        parser.error(f"--placeholders must be between 0 and {MAX_PLACEHOLDER_COUNT}.")
 
     catalog = get_catalog()
     heuristic_order = [
