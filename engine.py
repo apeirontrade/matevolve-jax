@@ -194,8 +194,11 @@ class MaterialEntry:
     @property
     def heuristic_low_thermal_expansion(self) -> float:
         """
-        Heuristic 3 (Negative or near-zero thermal expansion):
+        Heuristic 3 (Negative / low thermal expansion):
         Threshold: requires linear thermal expansion thermal_expansion_ppm <= 2.0 ppm/K.
+        Note: The formula (2.0 - thermal_expansion_ppm) / 12.0 linearly rewards
+        increasingly negative thermal expansion below +2.0 ppm/K (reaching 100 at
+        -10.0 ppm/K) rather than closeness to zero (|alpha| -> 0).
         Returns 0.0 if thermal_expansion_ppm > 2.0 ppm/K.
         """
         if self.thermal_expansion_ppm > 2.0:
@@ -252,7 +255,7 @@ class MaterialEntry:
             (
                 "Negative / low thermal expansion",
                 self.heuristic_low_thermal_expansion,
-                ["Athermal optical mounts", "Low-expansion composite fillers"],
+                ["Low-expansion composite fillers"],
                 f"Linear thermal expansion {self.thermal_expansion_ppm:+.1f} ppm/K (<=2.0 ppm/K).",
             ),
             (
