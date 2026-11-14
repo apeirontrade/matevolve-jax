@@ -163,16 +163,16 @@ class TestEngineAndApp(unittest.TestCase):
             self.assertIsNone(score)
             self.assertEqual(areas, [])
 
+        import contextlib
+
         for bad_count in (-1, 21):
             with self.assertRaises(ValueError):
                 engine.generate_placeholder_candidates(count=bad_count)
-            with self.assertRaises(SystemExit):
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
                 engine.main(["--placeholders", str(bad_count)])
 
         # Verify CLI output is pure ASCII (does not crash on ASCII-encoded stdout)
         buf = io.StringIO()
-        import contextlib
-
         with contextlib.redirect_stdout(buf):
             engine.main(["--placeholders", "2", "--seed", "42"])
         cli_out = buf.getvalue()
