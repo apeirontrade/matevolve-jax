@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Checks every DOI cited in engine.get_universal_catalog() against the public
+Checks every DOI cited in engine.get_catalog() against the public
 Crossref and DataCite REST APIs and prints the resolved metadata.
 """
 
@@ -26,10 +26,10 @@ DOI_PATTERN = re.compile(r"DOI:(10\.\d{4,9}/[^\s,;]+)", re.IGNORECASE)
 def extract_catalog_dois() -> List[Tuple[str, str, str]]:
     """
     Returns a list of (compound_name, field_name, doi) tuples for every DOI
-    present in get_universal_catalog().
+    present in get_catalog().
     """
     records: List[Tuple[str, str, str]] = []
-    for entry in engine.get_universal_catalog():
+    for entry in engine.get_catalog():
         for match in DOI_PATTERN.finditer(entry.source):
             records.append((entry.name, "source", match.group(1)))
         for prop_key, prop_cite in entry.property_sources.items():

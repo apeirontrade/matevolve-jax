@@ -9,7 +9,7 @@ Despite the repository name (`matevolve-jax`), **the current codebase uses only 
 ## What Exists in the Code Today
 
 1. **Literature-Sourced Catalog (`engine.py`):**
-   - A dataclass (`UniversalCompound`) storing composition (in atomic proportions), density ($\rho$), bulk modulus ($B$), shear modulus ($G$), linear coefficient of thermal expansion ($\alpha$), room-temperature thermal conductivity ($\kappa$), and electronic band gap ($E_g$).
+   - A dataclass (`MaterialEntry`) storing composition (in atomic proportions), density ($\rho$), bulk modulus ($B$), shear modulus ($G$), linear coefficient of thermal expansion ($\alpha$), room-temperature thermal conductivity ($\kappa$), and electronic band gap ($E_g$).
    - Every catalog entry carries a `source` summary and a `property_sources` dictionary mapping each numeric property to a literature DOI (with table/figure/page reference) or handbook reference.
 2. **Derived Isotropic Mechanics & Cost Formulas (`engine.py`):**
    - Isotropic Young's modulus: $E = \frac{9BG}{3B + G}$

@@ -39,10 +39,10 @@ class _MockSocket:
 
 
 def invoke_http(method: str, path: str) -> Tuple[int, str, str]:
-    """Executes a single HTTP request against UniversalStudioHandler in-memory."""
+    """Executes a single HTTP request against CatalogHandler in-memory."""
     raw_req = f"{method} {path} HTTP/1.1\r\nHost: localhost\r\n\r\n".encode("utf-8")
     sock = _MockSocket(raw_req)
-    app.UniversalStudioHandler(sock, ("127.0.0.1", 0), None)
+    app.CatalogHandler(sock, ("127.0.0.1", 0), None)
     raw_resp = sock.response_bytes.decode("utf-8", errors="replace")
     header_block, _, body = raw_resp.partition("\r\n\r\n")
     status_line = header_block.splitlines()[0]
@@ -53,7 +53,7 @@ def invoke_http(method: str, path: str) -> Tuple[int, str, str]:
 class TestEngineAndApp(unittest.TestCase):
     def test_cost_per_kg_for_known_formula(self) -> None:
         """Verifies raw_cost_per_kg against hand-computed molar mass weighted average."""
-        aln = engine.UniversalCompound(
+        aln = engine.MaterialEntry(
             name="AlN Test",
             structure_class="Wurtzite",
             composition={"Al": 1.0, "N": 1.0},
@@ -74,7 +74,7 @@ class TestEngineAndApp(unittest.TestCase):
 
     def test_ti_6al_4v_weight_fractions(self) -> None:
         """Verifies that Ti-6Al-4V atomic composition reproduces 90 / 6 / 4 wt%."""
-        catalog = {c.name: c for c in engine.get_universal_catalog()}
+        catalog = {c.name: c for c in engine.get_catalog()}
         ti64 = catalog["Ti-6Al-4V (Grade 5 Titanium Alloy Baseline)"]
         wf = ti64.weight_fractions()
         self.assertAlmostEqual(wf["Ti"], 0.90, delta=0.001)
@@ -89,7 +89,7 @@ class TestEngineAndApp(unittest.TestCase):
           G = E / (2 * (1 + nu))
         across all catalog entries.
         """
-        for entry in engine.get_universal_catalog():
+        for entry in engine.get_catalog():
             e_mod = entry.youngs_modulus_gpa
             nu = entry.poisson_ratio
             b_recovered = e_mod / (3.0 * (1.0 - 2.0 * nu))
@@ -103,7 +103,7 @@ class TestEngineAndApp(unittest.TestCase):
             set(engine.ELEMENT_COST_USD_PER_KG.keys()),
             set(engine.ATOMIC_MASS.keys()),
         )
-        for entry in engine.get_universal_catalog():
+        for entry in engine.get_catalog():
             self.assertFalse(entry.placeholder)
             self.assertTrue(entry.source)
             for prop in (
@@ -139,7 +139,7 @@ class TestEngineAndApp(unittest.TestCase):
 
     def test_no_baseline_is_labelled_an_anomaly(self) -> None:
         """Verifies that Ti-6Al-4V and B4C baselines return 'no anomaly' and score 0.0."""
-        catalog = {c.name: c for c in engine.get_universal_catalog()}
+        catalog = {c.name: c for c in engine.get_catalog()}
         for baseline_name in (
             "Ti-6Al-4V (Grade 5 Titanium Alloy Baseline)",
             "B4C (Boron Carbide Ceramic Baseline)",
@@ -157,7 +157,7 @@ class TestEngineAndApp(unittest.TestCase):
 
     def test_cristobalite_chen_hardness_is_none(self) -> None:
         """Verifies that vickers_hardness_gpa returns None when G/B > 1 or nu < 0 (cristobalite)."""
-        catalog = {c.name: c for c in engine.get_universal_catalog()}
+        catalog = {c.name: c for c in engine.get_catalog()}
         cristobalite = catalog["SiO2 (Alpha-Cristobalite)"]
         self.assertGreater(cristobalite.shear_modulus_gpa, cristobalite.bulk_modulus_gpa)
         self.assertLess(cristobalite.poisson_ratio, 0.0)
@@ -171,7 +171,7 @@ class TestEngineAndApp(unittest.TestCase):
 
     def test_no_max_mab_or_alloy_gets_hardness_label(self) -> None:
         """Verifies that MAX phases, MAB phases, and metallic alloys return 0.0 on heuristic 2."""
-        for entry in engine.get_universal_catalog():
+        for entry in engine.get_catalog():
             cls_lower = entry.structure_class.lower()
             if any(token in cls_lower for token in ("max", "mab", "alloy", "metal")):
                 self.assertEqual(entry.heuristic_elastic_screen, 0.0)
@@ -182,7 +182,7 @@ class TestEngineAndApp(unittest.TestCase):
 
         # Even if a synthetic MAX/MAB entry has B/G >= 1.35, Hv >= 15, and density <= 5,
         # heuristic 2 must return 0.0.
-        synthetic_max = engine.UniversalCompound(
+        synthetic_max = engine.MaterialEntry(
             name="Synthetic MAX Test",
             structure_class="MAX-Phase Nanolaminate",
             composition={"Ti": 3.0, "Si": 1.0, "C": 2.0},
@@ -208,7 +208,7 @@ class TestEngineAndApp(unittest.TestCase):
             status, _, body = invoke_http("GET", "/api/compounds")
             self.assertEqual(status, 200)
             items = json.loads(body)
-            base_count = len(engine.get_universal_catalog())
+            base_count = len(engine.get_catalog())
             self.assertEqual(len(items), base_count)
             self.assertTrue(all(not item["placeholder"] for item in items))
 
@@ -216,8 +216,10 @@ class TestEngineAndApp(unittest.TestCase):
             status, _, _ = invoke_http("GET", "/nonexistent")
             self.assertEqual(status, 404)
 
-            # 4. Unknown POST -> 404
+            # 4. Unknown POST (including legacy /api/evolve) -> 404
             status, _, _ = invoke_http("POST", "/api/unknown")
+            self.assertEqual(status, 404)
+            status, _, _ = invoke_http("POST", "/api/evolve")
             self.assertEqual(status, 404)
 
             # 5. POST /api/placeholders capped at MAX_PLACEHOLDER_ROWS (20)

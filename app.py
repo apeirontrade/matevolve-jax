@@ -11,15 +11,15 @@ from typing import List
 from urllib.parse import urlparse
 
 from engine import (
-    UniversalCompound,
+    MaterialEntry,
     generate_placeholder_candidates,
-    get_universal_catalog,
+    get_catalog,
 )
 
 MAX_PLACEHOLDER_ROWS: int = 20
 
-SOURCED_CATALOG: List[UniversalCompound] = get_universal_catalog()
-PLACEHOLDER_ROWS: List[UniversalCompound] = []
+SOURCED_CATALOG: List[MaterialEntry] = get_catalog()
+PLACEHOLDER_ROWS: List[MaterialEntry] = []
 PLACEHOLDER_RNG: random.Random = random.Random(42)
 
 
@@ -30,7 +30,7 @@ def reset_state() -> None:
     PLACEHOLDER_RNG = random.Random(42)
 
 
-def serialize_compound(c: UniversalCompound) -> dict:
+def serialize_compound(c: MaterialEntry) -> dict:
     label, score, areas, summary = c.evaluate_heuristics()
     return {
         "name": c.name,
@@ -347,7 +347,7 @@ loadData();
 """
 
 
-class UniversalStudioHandler(BaseHTTPRequestHandler):
+class CatalogHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
@@ -376,7 +376,7 @@ class UniversalStudioHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path in ("/api/placeholders", "/api/evolve"):
+        if parsed.path == "/api/placeholders":
             remaining = max(0, MAX_PLACEHOLDER_ROWS - len(PLACEHOLDER_ROWS))
             if remaining > 0:
                 batch = generate_placeholder_candidates(
@@ -393,6 +393,6 @@ class UniversalStudioHandler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = 8550
-    server = HTTPServer(("127.0.0.1", port), UniversalStudioHandler)
+    server = HTTPServer(("127.0.0.1", port), CatalogHandler)
     print(f"Materials Catalog Viewer running at http://127.0.0.1:{port}")
     server.serve_forever()

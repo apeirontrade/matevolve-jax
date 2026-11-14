@@ -67,7 +67,7 @@ ATOMIC_MASS: Dict[str, float] = {
 
 
 @dataclass
-class UniversalCompound:
+class MaterialEntry:
     name: str
     structure_class: str
     composition: Dict[str, float]
@@ -259,13 +259,13 @@ class UniversalCompound:
         return best_label, best_score, areas, summary
 
 
-def get_universal_catalog() -> List[UniversalCompound]:
+def get_catalog() -> List[MaterialEntry]:
     """
     Returns literature-sourced catalog entries where every numeric property is tied
     to an explicit citation in `property_sources`.
     """
     return [
-        UniversalCompound(
+        MaterialEntry(
             name="Ti-6Al-4V (Grade 5 Titanium Alloy Baseline)",
             structure_class="Alpha-Beta Titanium Alloy (Baseline)",
             # Atomic percentages reproducing 90.0 wt% Ti, 6.0 wt% Al, 4.0 wt% V
@@ -288,7 +288,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="B4C (Boron Carbide Ceramic Baseline)",
             structure_class="Rhombohedral Covalent Ceramic (Baseline)",
             composition={"B": 4, "C": 1},
@@ -310,7 +310,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="AlN (Wurtzite Aluminum Nitride)",
             structure_class="Wurtzite Wide-Bandgap Ceramic",
             composition={"Al": 1, "N": 1},
@@ -332,7 +332,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="Ti3SiC2 (Titanium Silicon Carbide MAX Phase)",
             structure_class="MAX-Phase Nanolaminate",
             composition={"Ti": 3, "Si": 1, "C": 2},
@@ -354,7 +354,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="Cr2AlC (Chromium Aluminum Carbide MAX Phase)",
             structure_class="MAX-Phase Nanolaminate",
             composition={"Cr": 2, "Al": 1, "C": 1},
@@ -376,7 +376,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="Fe2AlB2 (Iron Aluminum Boride MAB Phase)",
             structure_class="MAB-Phase Nanolaminate",
             composition={"Fe": 2, "Al": 1, "B": 2},
@@ -398,7 +398,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="MgSiN2 (Magnesium Silicon Nitride)",
             structure_class="Wurtzite-Derived Ternary Nitride",
             composition={"Mg": 1, "Si": 1, "N": 2},
@@ -420,7 +420,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="ZrW2O8 (Alpha-Zirconium Tungstate)",
             structure_class="Open Framework Oxide",
             composition={"Zr": 1, "W": 2, "O": 8},
@@ -442,7 +442,7 @@ def get_universal_catalog() -> List[UniversalCompound]:
             },
             placeholder=False,
         ),
-        UniversalCompound(
+        MaterialEntry(
             name="SiO2 (Alpha-Cristobalite)",
             structure_class="Tetrahedral Silica Polymorph",
             composition={"Si": 1, "O": 2},
@@ -471,7 +471,7 @@ def generate_placeholder_candidates(
     count: int = 4,
     rng: Optional[random.Random] = None,
     start_index: int = 1,
-) -> List[UniversalCompound]:
+) -> List[MaterialEntry]:
     """
     Generates synthetic, unverified placeholder rows using a deterministic
     `random.Random` instance for UI/pipeline testing.
@@ -484,7 +484,7 @@ def generate_placeholder_candidates(
 
     cations = ["Fe", "Al", "Mg", "Si", "Ca", "Na", "Mn", "Zn"]
     anions = ["B", "C", "N", "O", "P", "S"]
-    results: List[UniversalCompound] = []
+    results: List[MaterialEntry] = []
 
     for offset in range(count):
         idx = start_index + offset
@@ -506,7 +506,7 @@ def generate_placeholder_candidates(
         b_gap = round(rng.choice([0.0, rng.uniform(0.5, 5.0)]), 2)
 
         results.append(
-            UniversalCompound(
+            MaterialEntry(
                 name=f"Placeholder-{formula} (Synthetic #{idx})",
                 structure_class="Synthetic Placeholder (Unverified)",
                 composition=comp,
@@ -542,7 +542,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     )
     args = parser.parse_args(argv)
 
-    catalog = get_universal_catalog()
+    catalog = get_catalog()
     heuristic_order = [
         "Dielectric thermal conductor",
         "Elastic screen: Hv estimate >= 15, B/G >= 1.35, density <= 5",
@@ -550,8 +550,8 @@ def main(argv: Optional[List[str]] = None) -> None:
         "Auxetic (negative Poisson ratio)",
     ]
 
-    passing_by_heuristic: Dict[str, List[UniversalCompound]] = {h: [] for h in heuristic_order}
-    no_cutoff_rows: List[UniversalCompound] = []
+    passing_by_heuristic: Dict[str, List[MaterialEntry]] = {h: [] for h in heuristic_order}
+    no_cutoff_rows: List[MaterialEntry] = []
     for entry in catalog:
         label, score, _, _ = entry.evaluate_heuristics()
         if score is not None and score > 0.0 and label in passing_by_heuristic:
