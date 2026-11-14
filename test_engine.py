@@ -169,6 +169,15 @@ class TestEngineAndApp(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 engine.main(["--placeholders", str(bad_count)])
 
+        # Verify CLI output is pure ASCII (does not crash on ASCII-encoded stdout)
+        buf = io.StringIO()
+        import contextlib
+
+        with contextlib.redirect_stdout(buf):
+            engine.main(["--placeholders", "2", "--seed", "42"])
+        cli_out = buf.getvalue()
+        cli_out.encode("ascii")
+
     def test_no_baseline_is_labelled_an_anomaly(self) -> None:
         """Verifies that Ti-6Al-4V and B4C baselines return 'no anomaly' and score 0.0."""
         catalog = {c.name: c for c in engine.get_catalog()}

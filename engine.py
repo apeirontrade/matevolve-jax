@@ -608,8 +608,8 @@ def main(argv: Optional[List[str]] = None) -> None:
                 f"{c.poisson_ratio:>+7.3f} | {hv_str:<7} | {label:<36} | {score_str}"
             )
             if areas:
-                print(f"     └─ Possible application areas: {', '.join(areas)}")
-            print(f"     └─ Source: {c.source}")
+                print(f"     +- Possible application areas: {', '.join(areas)}")
+            print(f"     +- Source: {c.source}")
 
     print("-" * 120)
     print("[no cut-off met]")
@@ -621,7 +621,7 @@ def main(argv: Optional[List[str]] = None) -> None:
             f"{c.name[:44]:<44} | ${c.raw_cost_per_kg:>7.2f} | "
             f"{c.poisson_ratio:>+7.3f} | {hv_str:<7} | {label:<36} | {score_str}"
         )
-        print(f"     └─ Source: {c.source}")
+        print(f"     +- Source: {c.source}")
     print("=" * 120)
 
     if args.placeholders > 0:
