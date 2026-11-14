@@ -8,9 +8,11 @@ import json
 import random
 from typing import Tuple
 import unittest
+import urllib.error
 
 import app
 import engine
+from tools import check_dois
 
 
 class _MockSocket:
@@ -190,6 +192,25 @@ class TestEngineAndApp(unittest.TestCase):
             self.assertTrue(all(row["possible_applications"] == [] for row in placeholders))
         finally:
             app.reset_state()
+
+    def test_catalog_dois_syntax_and_resolution(self) -> None:
+        """
+        Verifies that catalog citations contain valid DOIs and that each unique DOI
+        resolves in Crossref or DataCite (skipped gracefully when offline).
+        """
+        records = check_dois.extract_catalog_dois()
+        self.assertGreaterEqual(len(records), 20)
+        unique_dois = sorted({doi for _, _, doi in records})
+        for doi in unique_dois:
+            self.assertRegex(doi, r"^10\.\d{4,9}/\S+$")
+
+        for doi in unique_dois:
+            try:
+                meta = check_dois.resolve_doi_metadata(doi, timeout=10.0)
+                self.assertIn(meta["provider"], ("Crossref", "DataCite"))
+                self.assertTrue(meta["title"])
+            except urllib.error.URLError as exc:
+                self.skipTest(f"Skipping online DOI resolution check while offline: {exc}")
 
 
 if __name__ == "__main__":
