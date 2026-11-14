@@ -158,7 +158,7 @@ class TestEngineAndApp(unittest.TestCase):
         for entry in engine.get_universal_catalog():
             cls_lower = entry.structure_class.lower()
             if any(token in cls_lower for token in ("max", "mab", "alloy", "metal")):
-                self.assertEqual(entry.heuristic_damage_tolerant_hard, 0.0)
+                self.assertEqual(entry.heuristic_elastic_screen, 0.0)
                 label, score, areas, _ = entry.evaluate_heuristics()
                 self.assertNotIn("Hv estimate", label)
                 self.assertEqual(score, 0.0)
@@ -177,7 +177,7 @@ class TestEngineAndApp(unittest.TestCase):
             thermal_cond_w_mk=25.0,
             band_gap_ev=0.0,
         )
-        self.assertEqual(synthetic_max.heuristic_damage_tolerant_hard, 0.0)
+        self.assertEqual(synthetic_max.heuristic_elastic_screen, 0.0)
 
     def test_http_endpoints_cap_and_404s(self) -> None:
         """Tests GET /, GET /api/compounds, POST cap at MAX_PLACEHOLDER_ROWS, and 404s."""

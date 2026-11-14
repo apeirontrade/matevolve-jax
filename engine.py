@@ -152,9 +152,9 @@ class UniversalCompound:
         return round(50.0 + 25.0 * bg_term + 25.0 * tc_term, 1)
 
     @property
-    def heuristic_damage_tolerant_hard(self) -> float:
+    def heuristic_elastic_screen(self) -> float:
         """
-        Heuristic 2:
+        Heuristic 2 (Elastic screen: Hv estimate >= 15, B/G >= 1.35, density <= 5):
         Threshold: requires Chen's Hv estimate vickers_hardness_gpa >= 15.0 GPa,
         Pugh ratio B/G >= 1.35 (above brittle ceramics like B4C at 1.24), and
         density_g_cm3 <= 5.0 g/cm^3.
@@ -215,10 +215,15 @@ class UniversalCompound:
                 f"Band gap {self.band_gap_ev} eV (>=3.0 eV) with thermal conductivity {self.thermal_cond_w_mk} W/m-K (>=50 W/m-K).",
             ),
             (
-                "High-modulus moderate-Pugh phase",
-                self.heuristic_damage_tolerant_hard,
-                ["Thermal-shock-resistant structural parts", "Machinable high-temperature components"],
-                f"Shear modulus {self.shear_modulus_gpa:.1f} GPa (>=110 GPa, E={self.youngs_modulus_gpa:.1f} GPa) with Pugh ratio {self.pugh_ratio:.2f} (>=1.35) and density {self.density_g_cm3} g/cm^3 (<=5.0).",
+                "Elastic screen: Hv estimate >= 15, B/G >= 1.35, density <= 5",
+                self.heuristic_elastic_screen,
+                [],
+                (
+                    f"Chen Hv estimate {self.vickers_hardness_gpa:.1f} GPa (>=15.0 GPa) "
+                    f"with Pugh ratio {self.pugh_ratio:.2f} (>=1.35) and density {self.density_g_cm3} g/cm^3 (<=5.0)."
+                    if self.vickers_hardness_gpa is not None
+                    else "Chen Hv estimate n/a (G/B > 1 or nu < 0)."
+                ),
             ),
             (
                 "Negative / low thermal expansion",

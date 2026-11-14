@@ -56,7 +56,7 @@ def serialize_compound(c: UniversalCompound) -> dict:
         "scores": {
             "all": round(score, 1),
             "dielectric_heat": round(c.heuristic_dielectric_heat, 1),
-            "damage_tolerant_hard": round(c.heuristic_damage_tolerant_hard, 1),
+            "elastic_screen": round(c.heuristic_elastic_screen, 1),
             "low_thermal_expansion": round(c.heuristic_low_thermal_expansion, 1),
             "auxetic": round(c.heuristic_auxetic, 1),
         },
@@ -130,7 +130,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <button class="lens-btn active" onclick="setLens('all', this)">All Heuristics (Max Score)</button>
       <button class="lens-btn" onclick="setLens('dielectric_heat', this)">Dielectric Thermal Conductor</button>
       <button class="lens-btn" onclick="setLens('low_thermal_expansion', this)">Negative / Low Thermal Expansion</button>
-      <button class="lens-btn" onclick="setLens('damage_tolerant_hard', this)">High-Modulus Moderate-Pugh Phase</button>
+      <button class="lens-btn" onclick="setLens('elastic_screen', this)">Elastic Screen: Hv &gt;= 15, B/G &gt;= 1.35, Density &lt;= 5</button>
       <button class="lens-btn" onclick="setLens('auxetic', this)">Auxetic (Negative Poisson Ratio)</button>
 
       <div class="slider-group">
