@@ -47,19 +47,29 @@ def serialize_compound(c: UniversalCompound) -> dict:
         "thermal_cond": round(c.thermal_cond_w_mk, 2),
         "band_gap_ev": round(c.band_gap_ev, 2),
         "heuristic_label": label,
-        "heuristic_score": round(score, 1),
+        "heuristic_score": round(score, 1) if score is not None else None,
         "possible_applications": [] if c.placeholder else areas,
         "heuristic_summary": summary,
         "source": c.source,
         "property_sources": c.property_sources,
         "placeholder": bool(c.placeholder),
-        "scores": {
-            "all": round(score, 1),
-            "dielectric_heat": round(c.heuristic_dielectric_heat, 1),
-            "elastic_screen": round(c.heuristic_elastic_screen, 1),
-            "low_thermal_expansion": round(c.heuristic_low_thermal_expansion, 1),
-            "auxetic": round(c.heuristic_auxetic, 1),
-        },
+        "scores": (
+            {
+                "all": None,
+                "dielectric_heat": None,
+                "elastic_screen": None,
+                "low_thermal_expansion": None,
+                "auxetic": None,
+            }
+            if c.placeholder
+            else {
+                "all": round(score, 1) if score is not None else 0.0,
+                "dielectric_heat": round(c.heuristic_dielectric_heat, 1),
+                "elastic_screen": round(c.heuristic_elastic_screen, 1),
+                "low_thermal_expansion": round(c.heuristic_low_thermal_expansion, 1),
+                "auxetic": round(c.heuristic_auxetic, 1),
+            }
+        ),
     }
 
 
@@ -286,7 +296,7 @@ function render() {
         <td>${escapeHtml(c.poisson_ratio.toFixed(3))}</td>
         <td>${escapeHtml(c.heuristic_label)}</td>
         <td style="color:var(--amber)">Unverified synthetic row (unranked)</td>
-        <td>${escapeHtml(c.active_score.toFixed(1))}</td>
+        <td>${c.active_score !== null && c.active_score !== undefined ? escapeHtml(c.active_score.toFixed(1)) : 'n/a'}</td>
       `;
       tbodyP.appendChild(tr);
     });

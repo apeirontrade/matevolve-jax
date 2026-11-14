@@ -132,7 +132,9 @@ class TestEngineAndApp(unittest.TestCase):
         for c in batch_a:
             self.assertTrue(c.placeholder)
             self.assertIn(c.formula, c.name)
-            _, _, areas, _ = c.evaluate_heuristics()
+            label, score, areas, _ = c.evaluate_heuristics()
+            self.assertEqual(label, "not evaluated (placeholder)")
+            self.assertIsNone(score)
             self.assertEqual(areas, [])
 
     def test_no_baseline_is_labelled_an_anomaly(self) -> None:
@@ -230,6 +232,13 @@ class TestEngineAndApp(unittest.TestCase):
             self.assertEqual(len(sourced), base_count)
             self.assertEqual(len(placeholders), app.MAX_PLACEHOLDER_ROWS)
             self.assertTrue(all(row["possible_applications"] == [] for row in placeholders))
+            self.assertTrue(
+                all(
+                    row["heuristic_label"] == "not evaluated (placeholder)"
+                    and row["heuristic_score"] is None
+                    for row in placeholders
+                )
+            )
         finally:
             app.reset_state()
 

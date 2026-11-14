@@ -207,7 +207,16 @@ class UniversalCompound:
         Evaluates all four heuristics. Each heuristic either passes its documented
         property cut-offs (producing a score in 50-100) or fails them (returning 0.0).
         When no cut-off is met (all scores 0.0), returns ("no anomaly", 0.0, [], ...).
+        When placeholder is True, heuristics are not evaluated and returns
+        ("not evaluated (placeholder)", None, [], ...).
         """
+        if self.placeholder:
+            return (
+                "not evaluated (placeholder)",
+                None,
+                [],
+                "Synthetic placeholder row (heuristics not evaluated on random numbers).",
+            )
         candidates = [
             (
                 "Dielectric thermal conductor",
@@ -247,8 +256,6 @@ class UniversalCompound:
                 [],
                 "No heuristic cut-off met (passing a heuristic's documented cut-offs yields a score in 50-100).",
             )
-        if self.placeholder:
-            return best_label, best_score, [], f"[UNVERIFIED PLACEHOLDER] {summary}"
         return best_label, best_score, areas, summary
 
 
@@ -601,9 +608,10 @@ def main(argv: Optional[List[str]] = None) -> None:
         print("=" * 118)
         for p in placeholders:
             label, score, _, _ = p.evaluate_heuristics()
+            score_str = f"{score:.1f}" if score is not None else "n/a"
             print(
                 f"[PLACEHOLDER] {p.name:<38} | formula={p.formula:<12} | "
-                f"cost=${p.raw_cost_per_kg:>6.2f}/kg | heuristic={label} ({score:.1f})"
+                f"cost=${p.raw_cost_per_kg:>6.2f}/kg | heuristic={label} ({score_str})"
             )
         print("=" * 118)
 
