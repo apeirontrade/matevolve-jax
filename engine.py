@@ -116,14 +116,18 @@ class UniversalCompound:
         return (3.0 * b - 2.0 * g) / (2.0 * (3.0 * b + g))
 
     @property
-    def vickers_hardness_gpa(self) -> float:
+    def vickers_hardness_gpa(self) -> Optional[float]:
         """
         Chen's empirical Vickers hardness correlation: Hv = 2*(k^2 * G)^0.585 - 3, k = G/B
         (Chen et al., Intermetallics 19, 1275, 2011, DOI:10.1016/j.intermet.2011.03.026).
+        Returns None when G/B > 1.0 or poisson_ratio < 0.0 (outside the valid domain of
+        Chen's correlation, e.g. auxetic alpha-cristobalite).
         Note: Fit on brittle covalent/ionic crystals; overestimates indentation hardness
-        in layered MAX/MAB phases where basal dislocation slip occurs.
+        in layered MAX/MAB phases and metals where dislocation slip occurs.
         """
-        k = self.shear_modulus_gpa / max(self.bulk_modulus_gpa, 1.0)
+        k = self.shear_modulus_gpa / self.bulk_modulus_gpa
+        if k > 1.0 or self.poisson_ratio < 0.0:
+            return None
         val = 2.0 * ((k ** 2) * self.shear_modulus_gpa) ** 0.585 - 3.0
         return max(val, 1.0)
 
@@ -541,15 +545,16 @@ def main(argv: Optional[List[str]] = None) -> None:
     print("  LITERATURE-SOURCED MATERIALS CATALOG: DERIVED PROPERTIES & HEURISTIC SCORES")
     print("=" * 118)
     print(
-        f"{'Rank':<4} | {'Material':<42} | {'Cost/kg':<9} | {'Poisson':<7} | "
+        f"{'Rank':<4} | {'Material':<42} | {'Cost/kg':<9} | {'Poisson':<7} | {'Est. Hv':<7} | "
         f"{'Top Heuristic Classification':<36} | {'Score'}"
     )
-    print("-" * 118)
+    print("-" * 128)
     for idx, c in enumerate(ranked, 1):
         label, score, areas, _ = c.evaluate_heuristics()
+        hv_str = f"{c.vickers_hardness_gpa:>6.1f}G" if c.vickers_hardness_gpa is not None else "    n/a"
         print(
             f"#{idx:<3} | {c.name[:42]:<42} | ${c.raw_cost_per_kg:>7.2f} | "
-            f"{c.poisson_ratio:>+7.3f} | {label:<36} | {score:>5.1f}"
+            f"{c.poisson_ratio:>+7.3f} | {hv_str:<7} | {label:<36} | {score:>5.1f}"
         )
         if areas:
             print(f"     └─ Possible application areas: {', '.join(areas)}")

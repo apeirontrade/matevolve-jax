@@ -39,7 +39,7 @@ def serialize_compound(c: UniversalCompound) -> dict:
         "composition": c.composition,
         "cost_per_kg": round(c.raw_cost_per_kg, 2),
         "density": round(c.density_g_cm3, 2),
-        "hardness_gpa": round(c.vickers_hardness_gpa, 1),
+        "hardness_gpa": round(c.vickers_hardness_gpa, 1) if c.vickers_hardness_gpa is not None else None,
         "pugh_ratio": round(c.pugh_ratio, 2),
         "poisson_ratio": round(c.poisson_ratio, 3),
         "stiffness_gpa": round(c.youngs_modulus_gpa, 1),
@@ -309,7 +309,7 @@ function renderInspector() {
     <div class="stat-grid">
       <div class="stat"><div class="k">Raw Cost Est.</div><div class="v">$${escapeHtml(selected.cost_per_kg.toFixed(2))}/kg</div></div>
       <div class="stat"><div class="k">Density</div><div class="v">${escapeHtml(selected.density)} g/cc</div></div>
-      <div class="stat"><div class="k">Est. Hv / Pugh</div><div class="v">${escapeHtml(selected.hardness_gpa)} GPa / ${escapeHtml(selected.pugh_ratio)}</div></div>
+      <div class="stat"><div class="k">Est. Hv / Pugh</div><div class="v">${selected.hardness_gpa !== null && selected.hardness_gpa !== undefined ? escapeHtml(selected.hardness_gpa) + ' GPa' : 'n/a'} / ${escapeHtml(selected.pugh_ratio)}</div></div>
       <div class="stat"><div class="k">Poisson Ratio</div><div class="v">${escapeHtml(selected.poisson_ratio)}</div></div>
       <div class="stat"><div class="k">Thermal Exp (CTE)</div><div class="v">${escapeHtml(selected.thermal_expansion_ppm)} ppm/K</div></div>
       <div class="stat"><div class="k">Thermal Cond / Eg</div><div class="v">${escapeHtml(selected.thermal_cond)} W / ${escapeHtml(selected.band_gap_ev)} eV</div></div>

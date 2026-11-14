@@ -153,6 +153,20 @@ class TestEngineAndApp(unittest.TestCase):
         self.assertLess(cristobalite.poisson_ratio, 0.0)
         self.assertGreaterEqual(cristobalite.heuristic_auxetic, 50.0)
 
+    def test_cristobalite_chen_hardness_is_none(self) -> None:
+        """Verifies that vickers_hardness_gpa returns None when G/B > 1 or nu < 0 (cristobalite)."""
+        catalog = {c.name: c for c in engine.get_universal_catalog()}
+        cristobalite = catalog["SiO2 (Alpha-Cristobalite)"]
+        self.assertGreater(cristobalite.shear_modulus_gpa, cristobalite.bulk_modulus_gpa)
+        self.assertLess(cristobalite.poisson_ratio, 0.0)
+        self.assertIsNone(cristobalite.vickers_hardness_gpa)
+        self.assertEqual(cristobalite.heuristic_elastic_screen, 0.0)
+
+        status, _, body = invoke_http("GET", "/api/compounds")
+        self.assertEqual(status, 200)
+        items = {row["name"]: row for row in json.loads(body)}
+        self.assertIsNone(items["SiO2 (Alpha-Cristobalite)"]["hardness_gpa"])
+
     def test_no_max_mab_or_alloy_gets_hardness_label(self) -> None:
         """Verifies that MAX phases, MAB phases, and metallic alloys return 0.0 on heuristic 2."""
         for entry in engine.get_universal_catalog():
