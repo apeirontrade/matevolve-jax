@@ -1,27 +1,37 @@
 #!/usr/bin/env python3
 """
-MatEvolve-JAX Universal Anomaly & Compound Discovery Studio
-Industry-agnostic web studio (http://localhost:8550) that:
-  - Scans compounds across 12 fundamental physics properties
-  - Automatically flags "Freaks of Nature" (Physics Trade-Off Breakers)
-  - Maps each discovered anomaly to the industries that need it
+Local HTTP viewer (http://127.0.0.1:8550) for the literature-sourced materials catalog
+and optional, unranked synthetic placeholder rows.
 """
 
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import random
+from typing import List
 from urllib.parse import urlparse
+
 from engine import (
-    UniversalCompound,
-    get_universal_catalog,
-    breed_universal_anomalies_rsi,
+    MaterialEntry,
+    generate_placeholder_candidates,
+    get_catalog,
 )
 
-LIVE_CATALOG = get_universal_catalog()
-GEN_COUNTER = 0
+MAX_PLACEHOLDER_ROWS: int = 20
+
+SOURCED_CATALOG: List[MaterialEntry] = get_catalog()
+PLACEHOLDER_ROWS: List[MaterialEntry] = []
+PLACEHOLDER_RNG: random.Random = random.Random(42)
 
 
-def serialize_compound(c: UniversalCompound) -> dict:
-    title, score, industries, reason = c.detect_breakthrough_profile()
+def reset_state() -> None:
+    """Resets in-memory placeholder list and RNG seed (used by unit tests)."""
+    global PLACEHOLDER_ROWS, PLACEHOLDER_RNG
+    PLACEHOLDER_ROWS = []
+    PLACEHOLDER_RNG = random.Random(42)
+
+
+def serialize_compound(c: MaterialEntry) -> dict:
+    label, score, areas, summary = c.evaluate_heuristics()
     return {
         "name": c.name,
         "formula": c.formula,
@@ -29,29 +39,37 @@ def serialize_compound(c: UniversalCompound) -> dict:
         "composition": c.composition,
         "cost_per_kg": round(c.raw_cost_per_kg, 2),
         "density": round(c.density_g_cm3, 2),
-        "hardness_gpa": round(c.vickers_hardness_gpa, 1),
+        "hardness_gpa": round(c.vickers_hardness_gpa, 1) if c.vickers_hardness_gpa is not None else None,
         "pugh_ratio": round(c.pugh_ratio, 2),
-        "poisson_ratio": round(c.poisson_ratio, 2),
+        "poisson_ratio": round(c.poisson_ratio, 3),
         "stiffness_gpa": round(c.youngs_modulus_gpa, 1),
         "thermal_expansion_ppm": round(c.thermal_expansion_ppm, 2),
-        "thermal_cond": round(c.thermal_cond_w_mk, 1),
+        "thermal_cond": round(c.thermal_cond_w_mk, 2),
         "band_gap_ev": round(c.band_gap_ev, 2),
-        "ionic_cond": round(c.ionic_cond_ms_cm, 1),
-        "seebeck": round(c.seebeck_uv_k, 1),
-        "surface_idx": round(c.surface_repulsion_idx, 1),
-        "anomaly_title": title,
-        "anomaly_score": round(score, 1),
-        "industries": industries,
-        "why_weird": reason,
-        "scores": {
-            "all": round(score, 1),
-            "dielectric_heat": round(c.anomaly_dielectric_heat, 1),
-            "tough_superhard": round(c.anomaly_tough_superhard, 1),
-            "zero_thermal": round(c.anomaly_zero_negative_thermal, 1),
-            "energy_quantum": round(c.anomaly_energy_quantum, 1),
-            "auxetic_shock": round(c.anomaly_auxetic_shock, 1),
-            "pfas_free": round(c.anomaly_surface_pfas_free, 1),
-        },
+        "heuristic_label": label,
+        "heuristic_score": round(score, 1) if score is not None else None,
+        "possible_applications": [] if c.placeholder else areas,
+        "heuristic_summary": summary,
+        "source": c.source,
+        "property_sources": c.property_sources,
+        "placeholder": bool(c.placeholder),
+        "scores": (
+            {
+                "all": None,
+                "dielectric_heat": None,
+                "elastic_screen": None,
+                "low_thermal_expansion": None,
+                "auxetic": None,
+            }
+            if c.placeholder
+            else {
+                "all": round(score, 1) if score is not None else 0.0,
+                "dielectric_heat": round(c.heuristic_dielectric_heat, 1),
+                "elastic_screen": round(c.heuristic_elastic_screen, 1),
+                "low_thermal_expansion": round(c.heuristic_low_thermal_expansion, 1),
+                "auxetic": round(c.heuristic_auxetic, 1),
+            }
+        ),
     }
 
 
@@ -59,14 +77,13 @@ HTML_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>MatEvolve-JAX | Universal Physics Anomaly & Compound Discovery Studio</title>
+<title>Materials Catalog & Heuristic Scoring Viewer</title>
 <style>
   :root {
     --bg: #090d16;
     --panel: #111827;
     --border: #1f2937;
     --accent: #38bdf8;
-    --purple: #a855f7;
     --green: #22c55e;
     --amber: #f59e0b;
     --text: #f1f5f9;
@@ -75,14 +92,13 @@ HTML_PAGE = """<!DOCTYPE html>
   * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   body { margin: 0; background: var(--bg); color: var(--text); padding: 22px; }
   .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 18px; }
-  .header h1 { margin: 0; font-size: 21px; color: #fff; }
-  .header p { margin: 5px 0 0; color: var(--muted); font-size: 13.5px; }
-  .btn-evolve {
-    background: linear-gradient(135deg, #2563eb, #9333ea);
-    color: #fff; border: none; padding: 12px 20px; border-radius: 8px;
-    font-weight: 600; cursor: pointer; font-size: 13.5px; box-shadow: 0 4px 16px rgba(147,51,234,0.35);
+  .header h1 { margin: 0; font-size: 20px; color: #fff; }
+  .header p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+  .btn-placeholder {
+    background: #1e293b; color: var(--text); border: 1px solid var(--border);
+    padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;
   }
-  .btn-evolve:hover { opacity: 0.92; transform: translateY(-1px); }
+  .btn-placeholder:hover { border-color: var(--accent); }
   .layout { display: grid; grid-template-columns: 300px 1fr; gap: 18px; }
   .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
   .lens-btn {
@@ -96,65 +112,86 @@ HTML_PAGE = """<!DOCTYPE html>
   .slider-group input[type=range] { width: 100%; accent-color: var(--accent); }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   th { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); color: var(--muted); }
-  td { padding: 11px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; vertical-align: middle; }
+  td { padding: 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; vertical-align: middle; }
   tr:hover td { background: rgba(56, 189, 248, 0.07); }
-  .pill { display: inline-block; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; background: rgba(168,85,247,0.18); color: #e9d5ff; }
-  .ind-tag { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; background: rgba(56,189,248,0.12); color: #7dd3fc; margin: 2px 3px 2px 0; }
+  .pill { display: inline-block; padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; background: rgba(56,189,248,0.15); color: #7dd3fc; }
+  .pill-none { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .pill-placeholder { background: rgba(245,158,11,0.2); color: #fcd34d; }
+  .app-tag { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; background: rgba(34,197,94,0.12); color: #86efac; margin: 2px 3px 2px 0; }
   .inspector { margin-top: 16px; background: #0c1322; border: 1px solid var(--accent); border-radius: 10px; padding: 16px; }
   .stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 12px; }
   .stat { background: var(--panel); padding: 9px; border-radius: 8px; border: 1px solid var(--border); }
   .stat .k { font-size: 10.5px; color: var(--muted); }
-  .stat .v { font-size: 14px; font-weight: 700; margin-top: 3px; color: #fff; }
+  .stat .v { font-size: 13.5px; font-weight: 700; margin-top: 3px; color: #fff; }
 </style>
 </head>
 <body>
   <div class="header">
     <div>
-      <h1>🌌 MatEvolve-JAX: Universal "Freak of Nature" & Anomaly Discovery Engine</h1>
-      <p>No pre-picked industry required: scans fundamental physics laws to find compounds that break classical trade-offs, then maps who needs them.</p>
+      <h1>Materials Catalog & Heuristic Scoring Demo</h1>
+      <p>Displays literature-sourced materials and derived elastic/thermal heuristics (standard-library prototype).</p>
     </div>
-    <button class="btn-evolve" onclick="runEvolution()">⚡ Run Unsupervised RSI Evolution (+4 Anomalies)</button>
+    <button class="btn-placeholder" onclick="addPlaceholders()">+ Generate 4 Synthetic Placeholders (Max 20)</button>
   </div>
 
   <div class="layout">
     <div class="card">
-      <h3 style="margin:0 0 10px; font-size:14px;">🔭 Discovery Lens (Physics Paradoxes)</h3>
-      <button class="lens-btn active" onclick="setLens('all', this)">🚨 All Physics Trade-Off Breakers (Auto)</button>
-      <button class="lens-btn" onclick="setLens('dielectric_heat', this)">💎 Insulator That Conducts Heat</button>
-      <button class="lens-btn" onclick="setLens('zero_thermal', this)">❄️ Zero / Negative Thermal Expansion</button>
-      <button class="lens-btn" onclick="setLens('tough_superhard', this)">🛡️ Superhard Yet Ductile (No Shatter)</button>
-      <button class="lens-btn" onclick="setLens('energy_quantum', this)">🔋 Fast-Ion & Waste-Heat Harvesters</button>
-      <button class="lens-btn" onclick="setLens('pfas_free', this)">💧 PFAS-Free Non-Stick / Superlubricity</button>
+      <h3 style="margin:0 0 10px; font-size:14px;">Heuristic Filter Lenses</h3>
+      <button class="lens-btn active" onclick="setLens('all', this)">All Heuristics (Max Score)</button>
+      <button class="lens-btn" onclick="setLens('dielectric_heat', this)">Dielectric Thermal Conductor</button>
+      <button class="lens-btn" onclick="setLens('low_thermal_expansion', this)">Negative / Low Thermal Expansion</button>
+      <button class="lens-btn" onclick="setLens('elastic_screen', this)">Elastic Screen: Hv &gt;= 15, B/G &gt;= 1.35, Density &lt;= 5</button>
+      <button class="lens-btn" onclick="setLens('auxetic', this)">Auxetic (Negative Poisson Ratio)</button>
 
       <div class="slider-group">
-        <label><span>Max Ingredient Cost ($/kg)</span><span id="v_cost">$12.00/kg</span></label>
-        <input type="range" id="s_cost" min="1.0" max="15.0" step="0.5" value="12.0" oninput="render()">
+        <label><span>Max Raw Element Cost ($/kg)</span><span id="v_cost">$500.00/kg</span></label>
+        <input type="range" id="s_cost" min="1.0" max="500.0" step="1.0" value="500.0" oninput="render()">
       </div>
       <div class="slider-group">
-        <label><span>Max Weight / Density (g/cm³)</span><span id="v_dens">6.5 g/cc</span></label>
-        <input type="range" id="s_dens" min="2.2" max="6.5" step="0.1" value="6.5" oninput="render()">
+        <label><span>Max Density (g/cm³)</span><span id="v_dens">6.5 g/cc</span></label>
+        <input type="range" id="s_dens" min="2.0" max="6.5" step="0.1" value="6.5" oninput="render()">
       </div>
       <hr style="border:0; border-top:1px solid var(--border); margin:14px 0;">
       <p style="font-size:11.5px; color:var(--muted); line-height:1.5;">
-        <b>How Unsupervised Discovery Works:</b><br>
-        Instead of locking into one industry, the engine tests <b>12 fundamental physics properties</b> at once and flags compounds that break normal rules of nature—then automatically lists which industries will pay for them.
+        <b>Notes:</b><br>
+        • Each heuristic either passes its documented property cut-offs (score 50–100) or not (<code>no anomaly</code>, no cut-off met).<br>
+        • Synthetic placeholder rows are unverified random numbers and are listed separately without rankings or application areas.
       </p>
     </div>
 
     <div class="card">
+      <h3 style="margin:0 0 10px; font-size:14px;">Literature-Sourced Catalog (Grouped by Heuristic Cut-Off)</h3>
       <table>
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Compound</th>
-            <th>Cost/kg</th>
-            <th>Physics Trade-Off Broken ("Freak Property")</th>
-            <th>Industries Unlocked Automatically</th>
-            <th>Anomaly Score</th>
+            <th>Material</th>
+            <th>Raw Cost</th>
+            <th>Poisson</th>
+            <th>Heuristic Classification</th>
+            <th>Possible Application Areas</th>
+            <th>Heuristic Score</th>
           </tr>
         </thead>
-        <tbody id="tbody"></tbody>
+        <tbody id="tbody-sourced"></tbody>
       </table>
+
+      <div id="placeholder-section" style="display:none; margin-top:22px;">
+        <h3 style="margin:0 0 10px; font-size:14px; color:var(--amber);">Synthetic Placeholders (Unverified Random Numbers — Unranked)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Tag</th>
+              <th>Synthetic Name</th>
+              <th>Raw Cost</th>
+              <th>Poisson</th>
+              <th>Heuristic Classification</th>
+              <th>Status</th>
+              <th>Heuristic Score</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-placeholders"></tbody>
+        </table>
+      </div>
 
       <div id="inspector" class="inspector" style="display:none;"></div>
     </div>
@@ -165,17 +202,25 @@ let compounds = [];
 let currentLens = 'all';
 let selected = null;
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function loadData() {
   const res = await fetch('/api/compounds');
   compounds = await res.json();
-  selected = compounds[0];
+  selected = compounds[0] || null;
   render();
 }
 
-async function runEvolution() {
-  const res = await fetch('/api/evolve', {method: 'POST'});
+async function addPlaceholders() {
+  const res = await fetch('/api/placeholders', {method: 'POST'});
   compounds = await res.json();
-  selected = compounds[compounds.length - 1];
   render();
 }
 
@@ -192,50 +237,105 @@ function render() {
   document.getElementById('v_cost').innerText = '$' + maxCost.toFixed(2) + '/kg';
   document.getElementById('v_dens').innerText = maxDens.toFixed(1) + ' g/cc';
 
-  const filtered = compounds
-    .filter(c => c.cost_per_kg <= maxCost && c.density <= maxDens)
-    .map(c => ({...c, active_score: c.scores[currentLens]}))
-    .sort((a, b) => b.active_score - a.active_score);
+  const heuristicOrder = [
+    'Dielectric thermal conductor',
+    'Elastic screen: Hv estimate >= 15, B/G >= 1.35, density <= 5',
+    'Negative / low thermal expansion',
+    'Auxetic (negative Poisson ratio)'
+  ];
+  const filteredSourced = compounds
+    .filter(c => !c.placeholder && c.cost_per_kg <= maxCost && c.density <= maxDens)
+    .map(c => ({...c, active_score: c.scores[currentLens]}));
+  const passing = filteredSourced
+    .filter(c => c.active_score > 0)
+    .sort((a, b) => {
+      const ga = heuristicOrder.indexOf(a.heuristic_label);
+      const gb = heuristicOrder.indexOf(b.heuristic_label);
+      if (ga !== gb) return ga - gb;
+      return b.active_score - a.active_score;
+    });
+  const noCutoff = filteredSourced.filter(c => !(c.active_score > 0));
+  const sourced = [...passing, ...noCutoff];
 
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = '';
-  filtered.forEach((c, idx) => {
+  const placeholders = compounds
+    .filter(c => c.placeholder && c.cost_per_kg <= maxCost && c.density <= maxDens)
+    .map(c => ({...c, active_score: c.scores[currentLens]}));
+
+  const tbodySourced = document.getElementById('tbody-sourced');
+  tbodySourced.innerHTML = '';
+  sourced.forEach((c) => {
     const tr = document.createElement('tr');
     tr.onclick = () => { selected = c; renderInspector(); };
-    const indHtml = c.industries.map(ind => `<span class="ind-tag">${ind}</span>`).join('');
+    const pillClass = c.heuristic_label === 'no anomaly' ? 'pill pill-none' : 'pill';
+    const appHtml = (c.possible_applications || [])
+      .map(a => `<span class="app-tag">${escapeHtml(a)}</span>`)
+      .join('') || '<span style="color:var(--muted)">—</span>';
     tr.innerHTML = `
-      <td><b>#${idx+1}</b></td>
-      <td><b>${c.name}</b><br><span style="color:var(--muted);font-size:11px;">${c.structure_class}</span></td>
-      <td style="color:#86efac; font-weight:600;">$${c.cost_per_kg.toFixed(2)}</td>
-      <td><span class="pill">${c.anomaly_title}</span></td>
-      <td>${indHtml}</td>
-      <td><b style="color:#38bdf8; font-size:14px;">${c.active_score.toFixed(1)}</b></td>
+      <td><b>${escapeHtml(c.name)}</b><br><span style="color:var(--muted);font-size:11px;">${escapeHtml(c.structure_class)}</span></td>
+      <td>$${escapeHtml(c.cost_per_kg.toFixed(2))}</td>
+      <td>${escapeHtml(c.poisson_ratio.toFixed(3))}</td>
+      <td><span class="${pillClass}">${escapeHtml(c.heuristic_label)}</span></td>
+      <td>${appHtml}</td>
+      <td><b>${escapeHtml(c.active_score.toFixed(1))}</b></td>
     `;
-    tbody.appendChild(tr);
+    tbodySourced.appendChild(tr);
   });
+
+  const pSec = document.getElementById('placeholder-section');
+  const tbodyP = document.getElementById('tbody-placeholders');
+  tbodyP.innerHTML = '';
+  if (placeholders.length > 0) {
+    pSec.style.display = 'block';
+    placeholders.forEach(c => {
+      const tr = document.createElement('tr');
+      tr.onclick = () => { selected = c; renderInspector(); };
+      tr.innerHTML = `
+        <td><span class="pill pill-placeholder">PLACEHOLDER</span></td>
+        <td><b>${escapeHtml(c.name)}</b></td>
+        <td>$${escapeHtml(c.cost_per_kg.toFixed(2))}</td>
+        <td>${escapeHtml(c.poisson_ratio.toFixed(3))}</td>
+        <td>${escapeHtml(c.heuristic_label)}</td>
+        <td style="color:var(--amber)">Unverified synthetic row (unranked)</td>
+        <td>${c.active_score !== null && c.active_score !== undefined ? escapeHtml(c.active_score.toFixed(1)) : 'n/a'}</td>
+      `;
+      tbodyP.appendChild(tr);
+    });
+  } else {
+    pSec.style.display = 'none';
+  }
+
   if (selected) renderInspector();
 }
 
 function renderInspector() {
   const box = document.getElementById('inspector');
   box.style.display = 'block';
-  const recipe = Object.entries(selected.composition).map(([k,v]) => `${v} ${k}`).join(' + ');
+  const recipe = Object.entries(selected.composition)
+    .map(([k, v]) => `${escapeHtml(v)} ${escapeHtml(k)}`)
+    .join(' + ');
+  const propSourcesHtml = Object.entries(selected.property_sources || {})
+    .map(([k, v]) => `<li><b>${escapeHtml(k)}:</b> ${escapeHtml(v)}</li>`)
+    .join('');
+
   box.innerHTML = `
-    <h3 style="margin:0 0 6px; color:#38bdf8;">🔬 12-Property Physics Fingerprint: ${selected.name}</h3>
+    <h3 style="margin:0 0 6px; color:#38bdf8;">
+      ${selected.placeholder ? '[UNVERIFIED PLACEHOLDER] ' : ''}Material Details: ${escapeHtml(selected.name)}
+    </h3>
     <div style="font-size:13px; color:#e2e8f0; margin-bottom:6px;">
-      <b>Why It's a Physics Anomaly:</b> ${selected.why_weird}
+      <b>Heuristic Summary:</b> ${escapeHtml(selected.heuristic_summary)}
     </div>
-    <div style="font-size:12px; color:var(--muted);">
-      <b>Atomic Formula:</b> ${selected.formula} (${recipe}) &nbsp;|&nbsp;
-      <b>Unlocked Markets:</b> ${selected.industries.join(' • ')}
+    <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">
+      <b>Formula:</b> ${escapeHtml(selected.formula)} (${recipe}) &nbsp;|&nbsp;
+      <b>Primary Source:</b> ${escapeHtml(selected.source)}
     </div>
+    ${propSourcesHtml ? `<ul style="font-size:11.5px; color:var(--muted); margin:6px 0 10px; padding-left:18px;">${propSourcesHtml}</ul>` : ''}
     <div class="stat-grid">
-      <div class="stat"><div class="k">Raw Cost</div><div class="v" style="color:#22c55e">$${selected.cost_per_kg.toFixed(2)}/kg</div></div>
-      <div class="stat"><div class="k">Density (Weight)</div><div class="v">${selected.density} g/cc</div></div>
-      <div class="stat"><div class="k">Hardness / Pugh</div><div class="v">${selected.hardness_gpa} GPa / ${selected.pugh_ratio}</div></div>
-      <div class="stat"><div class="k">Thermal Expansion</div><div class="v">${selected.thermal_expansion_ppm > 0 ? '+' : ''}${selected.thermal_expansion_ppm} ppm/K</div></div>
-      <div class="stat"><div class="k">Heat Cond / BandGap</div><div class="v">${selected.thermal_cond} W / ${selected.band_gap_ev} eV</div></div>
-      <div class="stat"><div class="k">Ion / Seebeck / Slip</div><div class="v">${selected.ionic_cond} mS | ${selected.surface_idx}%</div></div>
+      <div class="stat"><div class="k">Raw Cost Est.</div><div class="v">$${escapeHtml(selected.cost_per_kg.toFixed(2))}/kg</div></div>
+      <div class="stat"><div class="k">Density</div><div class="v">${escapeHtml(selected.density)} g/cc</div></div>
+      <div class="stat"><div class="k">Est. Hv / Pugh</div><div class="v">${selected.hardness_gpa !== null && selected.hardness_gpa !== undefined ? escapeHtml(selected.hardness_gpa) + ' GPa' : 'n/a'} / ${escapeHtml(selected.pugh_ratio)}</div></div>
+      <div class="stat"><div class="k">Poisson Ratio</div><div class="v">${escapeHtml(selected.poisson_ratio)}</div></div>
+      <div class="stat"><div class="k">Thermal Exp (CTE)</div><div class="v">${escapeHtml(selected.thermal_expansion_ppm)} ppm/K</div></div>
+      <div class="stat"><div class="k">Thermal Cond / Eg</div><div class="v">${escapeHtml(selected.thermal_cond)} W / ${escapeHtml(selected.band_gap_ev)} eV</div></div>
     </div>
   `;
 }
@@ -247,38 +347,52 @@ loadData();
 """
 
 
-class UniversalStudioHandler(BaseHTTPRequestHandler):
+class CatalogHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-    def do_GET(self):
+    def _send_json(self, status_code: int, payload: object) -> None:
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path == "/api/compounds":
-            data = [serialize_compound(c) for c in LIVE_CATALOG]
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(data).encode("utf-8"))
-        else:
+        if parsed.path == "/":
+            body = HTML_PAGE.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(HTML_PAGE.encode("utf-8"))
+            self.wfile.write(body)
+        elif parsed.path == "/api/compounds":
+            data = [serialize_compound(c) for c in (SOURCED_CATALOG + PLACEHOLDER_ROWS)]
+            self._send_json(200, data)
+        else:
+            self._send_json(404, {"error": "Not found", "path": parsed.path})
 
-    def do_POST(self):
-        global GEN_COUNTER
-        if self.path == "/api/evolve":
-            GEN_COUNTER += 1
-            LIVE_CATALOG.extend(breed_universal_anomalies_rsi(GEN_COUNTER, count=4))
-            data = [serialize_compound(c) for c in LIVE_CATALOG]
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(data).encode("utf-8"))
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/placeholders":
+            remaining = max(0, MAX_PLACEHOLDER_ROWS - len(PLACEHOLDER_ROWS))
+            if remaining > 0:
+                batch = generate_placeholder_candidates(
+                    count=min(4, remaining),
+                    rng=PLACEHOLDER_RNG,
+                    start_index=len(PLACEHOLDER_ROWS) + 1,
+                )
+                PLACEHOLDER_ROWS.extend(batch)
+            data = [serialize_compound(c) for c in (SOURCED_CATALOG + PLACEHOLDER_ROWS)]
+            self._send_json(200, data)
+        else:
+            self._send_json(404, {"error": "Not found", "path": parsed.path})
 
 
 if __name__ == "__main__":
     port = 8550
-    server = HTTPServer(("127.0.0.1", port), UniversalStudioHandler)
-    print(f"MatEvolve-JAX Universal Anomaly Studio running at http://localhost:{port}")
+    server = HTTPServer(("127.0.0.1", port), CatalogHandler)
+    print(f"Materials Catalog Viewer running at http://127.0.0.1:{port}")
     server.serve_forever()
