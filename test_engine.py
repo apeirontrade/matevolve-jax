@@ -151,7 +151,33 @@ class TestEngineAndApp(unittest.TestCase):
         # Also verify true auxetic definition (negative Poisson ratio only)
         cristobalite = catalog["SiO2 (Alpha-Cristobalite)"]
         self.assertLess(cristobalite.poisson_ratio, 0.0)
-        self.assertGreaterEqual(cristobalite.heuristic_auxetic, engine.HEURISTIC_THRESHOLD)
+        self.assertGreaterEqual(cristobalite.heuristic_auxetic, 50.0)
+
+    def test_no_max_mab_or_alloy_gets_hardness_label(self) -> None:
+        """Verifies that MAX phases, MAB phases, and metallic alloys return 0.0 on heuristic 2."""
+        for entry in engine.get_universal_catalog():
+            cls_lower = entry.structure_class.lower()
+            if any(token in cls_lower for token in ("max", "mab", "alloy", "metal")):
+                self.assertEqual(entry.heuristic_damage_tolerant_hard, 0.0)
+                label, score, areas, _ = entry.evaluate_heuristics()
+                self.assertNotIn("Hv estimate", label)
+                self.assertEqual(score, 0.0)
+                self.assertEqual(areas, [])
+
+        # Even if a synthetic MAX/MAB entry has B/G >= 1.35, Hv >= 15, and density <= 5,
+        # heuristic 2 must return 0.0.
+        synthetic_max = engine.UniversalCompound(
+            name="Synthetic MAX Test",
+            structure_class="MAX-Phase Nanolaminate",
+            composition={"Ti": 3.0, "Si": 1.0, "C": 2.0},
+            density_g_cm3=4.2,
+            bulk_modulus_gpa=220.0,
+            shear_modulus_gpa=150.0,
+            thermal_expansion_ppm=8.0,
+            thermal_cond_w_mk=25.0,
+            band_gap_ev=0.0,
+        )
+        self.assertEqual(synthetic_max.heuristic_damage_tolerant_hard, 0.0)
 
     def test_http_endpoints_cap_and_404s(self) -> None:
         """Tests GET /, GET /api/compounds, POST cap at MAX_PLACEHOLDER_ROWS, and 404s."""

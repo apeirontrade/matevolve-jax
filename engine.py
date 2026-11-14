@@ -154,22 +154,27 @@ class UniversalCompound:
     @property
     def heuristic_damage_tolerant_hard(self) -> float:
         """
-        Heuristic 2 (High-modulus moderate-Pugh phase):
-        Threshold: requires shear_modulus_gpa >= 110.0 GPa, Pugh ratio B/G >= 1.35
-        (above brittle ceramics like B4C at 1.24), and density_g_cm3 <= 5.0 g/cm^3.
-        Does not use Chen's hardness estimate, which overpredicts indentation hardness
-        for machinable MAX phases such as Ti3SiC2.
-        Returns 0.0 if any threshold is not met.
+        Heuristic 2:
+        Threshold: requires Chen's Hv estimate vickers_hardness_gpa >= 15.0 GPa,
+        Pugh ratio B/G >= 1.35 (above brittle ceramics like B4C at 1.24), and
+        density_g_cm3 <= 5.0 g/cm^3.
+        Returns 0.0 for MAX phases, MAB phases, and metallic alloys (where Chen's
+        brittle-crystal correlation is invalid), or if any threshold is not met.
         """
+        cls_lower = self.structure_class.lower()
+        if any(token in cls_lower for token in ("max", "mab", "alloy", "metal")):
+            return 0.0
+        hv = self.vickers_hardness_gpa
         if (
-            self.shear_modulus_gpa < 110.0
+            hv is None
+            or hv < 15.0
             or self.pugh_ratio < 1.35
             or self.density_g_cm3 > 5.0
         ):
             return 0.0
-        g_term = min((self.shear_modulus_gpa - 110.0) / 70.0, 1.0)
+        hv_term = min((hv - 15.0) / 20.0, 1.0)
         pugh_term = min((self.pugh_ratio - 1.35) / 0.40, 1.0)
-        return round(50.0 + 30.0 * g_term + 20.0 * pugh_term, 1)
+        return round(50.0 + 30.0 * hv_term + 20.0 * pugh_term, 1)
 
     @property
     def heuristic_low_thermal_expansion(self) -> float:
