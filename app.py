@@ -130,7 +130,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <button class="lens-btn active" onclick="setLens('all', this)">All Heuristics (Max Score)</button>
       <button class="lens-btn" onclick="setLens('dielectric_heat', this)">Dielectric Thermal Conductor</button>
       <button class="lens-btn" onclick="setLens('low_thermal_expansion', this)">Negative / Low Thermal Expansion</button>
-      <button class="lens-btn" onclick="setLens('damage_tolerant_hard', this)">High-Stiffness Machinable/Hard Phase</button>
+      <button class="lens-btn" onclick="setLens('damage_tolerant_hard', this)">High-Modulus Moderate-Pugh Phase</button>
       <button class="lens-btn" onclick="setLens('auxetic', this)">Auxetic (Negative Poisson Ratio)</button>
 
       <div class="slider-group">

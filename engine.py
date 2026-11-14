@@ -122,21 +122,22 @@ class UniversalCompound:
     @property
     def heuristic_damage_tolerant_hard(self) -> float:
         """
-        Heuristic 2 (Damage-tolerant hard ceramic / nanolaminate):
-        Threshold: requires elastic hardness estimate vickers_hardness_gpa >= 15.0 GPa,
-        Pugh ratio B/G >= 1.35 (above brittle ceramics like B4C at 1.25),
-        and density_g_cm3 <= 5.0 g/cm^3.
+        Heuristic 2 (High-modulus moderate-Pugh phase):
+        Threshold: requires shear_modulus_gpa >= 110.0 GPa, Pugh ratio B/G >= 1.35
+        (above brittle ceramics like B4C at 1.25), and density_g_cm3 <= 5.0 g/cm^3.
+        Does not use Chen's hardness estimate, which overpredicts indentation hardness
+        for machinable MAX phases such as Ti3SiC2.
         Returns 0.0 if any threshold is not met.
         """
         if (
-            self.vickers_hardness_gpa < 15.0
+            self.shear_modulus_gpa < 110.0
             or self.pugh_ratio < 1.35
             or self.density_g_cm3 > 5.0
         ):
             return 0.0
-        hv_term = min((self.vickers_hardness_gpa - 15.0) / 15.0, 1.0)
+        g_term = min((self.shear_modulus_gpa - 110.0) / 70.0, 1.0)
         pugh_term = min((self.pugh_ratio - 1.35) / 0.40, 1.0)
-        return round(50.0 + 30.0 * hv_term + 20.0 * pugh_term, 1)
+        return round(50.0 + 30.0 * g_term + 20.0 * pugh_term, 1)
 
     @property
     def heuristic_low_thermal_expansion(self) -> float:
@@ -176,10 +177,10 @@ class UniversalCompound:
                 f"Band gap {self.band_gap_ev} eV (>=3.0 eV) with thermal conductivity {self.thermal_cond_w_mk} W/m-K (>=50 W/m-K).",
             ),
             (
-                "High-stiffness machinable/hard phase",
+                "High-modulus moderate-Pugh phase",
                 self.heuristic_damage_tolerant_hard,
-                ["Wear-resistant structural components", "Thermal-shock-Cycling refractory parts"],
-                f"Elastic hardness estimate {self.vickers_hardness_gpa:.1f} GPa (>=15 GPa) with Pugh ratio {self.pugh_ratio:.2f} (>=1.35) and density {self.density_g_cm3} g/cm^3 (<=5.0).",
+                ["Thermal-shock-resistant structural parts", "Machinable high-temperature components"],
+                f"Shear modulus {self.shear_modulus_gpa:.1f} GPa (>=110 GPa, E={self.youngs_modulus_gpa:.1f} GPa) with Pugh ratio {self.pugh_ratio:.2f} (>=1.35) and density {self.density_g_cm3} g/cm^3 (<=5.0).",
             ),
             (
                 "Negative / low thermal expansion",
@@ -241,19 +242,19 @@ def get_universal_catalog() -> List[UniversalCompound]:
             structure_class="Rhombohedral Covalent Ceramic (Baseline)",
             composition={"B": 4, "C": 1},
             density_g_cm3=2.52,
-            bulk_modulus_gpa=247.0,
-            shear_modulus_gpa=197.0,
+            bulk_modulus_gpa=241.0,
+            shear_modulus_gpa=193.0,
             thermal_expansion_ppm=5.6,
             thermal_cond_w_mk=30.0,
             band_gap_ev=2.09,
-            source="Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), DOI:10.1111/j.1551-2916.2011.04865.x; Werheit, J. Phys.: Condens. Matter 18, S1065 (2006), DOI:10.1088/0953-8984/18/22/S01",
+            source="Domnich et al., J. Am. Ceram. Soc. 94(11), 3605-3628 (2011), DOI:10.1111/j.1551-2916.2011.04865.x; Dodd, Saunders & James, J. Mater. Sci. 37(13), 2731-2736 (2002), DOI:10.1023/A:1015825318086; Werheit, J. Phys.: Condens. Matter 18(47), 10655-10662 (2006), DOI:10.1088/0953-8984/18/47/011",
             property_sources={
-                "density_g_cm3": "Domnich et al. 2011, DOI:10.1111/j.1551-2916.2011.04865.x (2.52 g/cm^3)",
-                "bulk_modulus_gpa": "McClellan et al., J. Am. Ceram. Soc. 84, 1049 (2001), DOI:10.1111/j.1151-2916.2001.tb00789.x (247 GPa)",
-                "shear_modulus_gpa": "McClellan et al. 2001, DOI:10.1111/j.1151-2916.2001.tb00789.x (197 GPa)",
-                "thermal_expansion_ppm": "Munro, J. Res. NIST 105(5), 709-720 (2000) / Domnich et al. 2011 (5.6e-6 /K)",
-                "thermal_cond_w_mk": "Domnich et al. 2011, DOI:10.1111/j.1551-2916.2011.04865.x (~30 W/m-K at 300 K)",
-                "band_gap_ev": "Werheit 2006, DOI:10.1088/0953-8984/18/22/S01 (2.09 eV)",
+                "density_g_cm3": "Domnich et al. 2011, Sec. II p. 3606, DOI:10.1111/j.1551-2916.2011.04865.x (2.52 g/cm^3)",
+                "bulk_modulus_gpa": "Dodd, Saunders & James 2002, Abstract & Table I p. 2733, DOI:10.1023/A:1015825318086 (241 GPa at 295 K)",
+                "shear_modulus_gpa": "Dodd, Saunders & James 2002, Abstract & Table I p. 2733, DOI:10.1023/A:1015825318086 (193 GPa at 295 K)",
+                "thermal_expansion_ppm": "Domnich et al. 2011, Sec. II, DOI:10.1111/j.1551-2916.2011.04865.x (5.6e-6 /K)",
+                "thermal_cond_w_mk": "Domnich et al. 2011, Sec. II p. 3610, DOI:10.1111/j.1551-2916.2011.04865.x (~30 W/m-K at 300 K)",
+                "band_gap_ev": "Werheit 2006, Abstract & Sec. 2 Fig. 1 p. 10656, DOI:10.1088/0953-8984/18/47/011 (2.09 eV)",
             },
             placeholder=False,
         ),
@@ -269,12 +270,12 @@ def get_universal_catalog() -> List[UniversalCompound]:
             band_gap_ev=6.20,
             source="Slack et al., J. Phys. Chem. Solids 48(7), 641-647 (1987), DOI:10.1016/0022-3697(87)90153-3; McNeil et al., J. Am. Ceram. Soc. 76(5), 1132-1136 (1993), DOI:10.1111/j.1151-2916.1993.tb03730.x",
             property_sources={
-                "density_g_cm3": "Slack et al. 1987, DOI:10.1016/0022-3697(87)90153-3 (3.26 g/cm^3)",
-                "bulk_modulus_gpa": "McNeil et al. 1993, DOI:10.1111/j.1151-2916.1993.tb03730.x (202 GPa)",
-                "shear_modulus_gpa": "McNeil et al. 1993, DOI:10.1111/j.1151-2916.1993.tb03730.x (131 GPa)",
-                "thermal_expansion_ppm": "Slack & Bartram, J. Appl. Phys. 46, 89 (1975), DOI:10.1063/1.321373 (4.5e-6 /K at 300 K)",
-                "thermal_cond_w_mk": "Slack et al. 1987, DOI:10.1016/0022-3697(87)90153-3 (285 W/m-K single crystal at 300 K)",
-                "band_gap_ev": "Yim et al., J. Appl. Phys. 44, 292 (1973), DOI:10.1063/1.1661876 (6.2 eV)",
+                "density_g_cm3": "Slack et al. 1987, Table 1 p. 642, DOI:10.1016/0022-3697(87)90153-3 (3.26 g/cm^3)",
+                "bulk_modulus_gpa": "McNeil et al. 1993, Table II p. 1134, DOI:10.1111/j.1151-2916.1993.tb03730.x (202 GPa)",
+                "shear_modulus_gpa": "McNeil et al. 1993, Table II p. 1134, DOI:10.1111/j.1151-2916.1993.tb03730.x (131 GPa)",
+                "thermal_expansion_ppm": "Slack & Bartram, J. Appl. Phys. 46(1), 89-98 (1975), Table II p. 91, DOI:10.1063/1.321373 (4.5e-6 /K at 300 K)",
+                "thermal_cond_w_mk": "Slack et al. 1987, Abstract & Sec. 4 p. 645, DOI:10.1016/0022-3697(87)90153-3 (285 W/m-K single crystal at 300 K)",
+                "band_gap_ev": "Yim et al., J. Appl. Phys. 44(1), 292-296 (1973), Abstract & Fig. 4 p. 295, DOI:10.1063/1.1661876 (6.2 eV)",
             },
             placeholder=False,
         ),
@@ -288,56 +289,14 @@ def get_universal_catalog() -> List[UniversalCompound]:
             thermal_expansion_ppm=9.1,
             thermal_cond_w_mk=37.0,
             band_gap_ev=0.0,
-            source="Barsoum, Prog. Solid State Chem. 28, 201-281 (2000), DOI:10.1016/S0079-6786(00)00006-6; Finkel et al., J. Appl. Phys. 87, 1701 (2000), DOI:10.1063/1.372080",
+            source="Barsoum, Prog. Solid State Chem. 28, 201-281 (2000), DOI:10.1016/S0079-6786(00)00006-6; Finkel, Barsoum & El-Raghy, J. Appl. Phys. 87(4), 1701-1703 (2000), DOI:10.1063/1.372080; Barsoum et al., J. Phys. Chem. Solids 60(4), 429-439 (1999), DOI:10.1016/S0022-3697(98)00313-8",
             property_sources={
-                "density_g_cm3": "Barsoum 2000, DOI:10.1016/S0079-6786(00)00006-6 (4.52 g/cm^3)",
-                "bulk_modulus_gpa": "Finkel et al. 2000, DOI:10.1063/1.372080 (187 GPa)",
-                "shear_modulus_gpa": "Finkel et al. 2000, DOI:10.1063/1.372080 (138 GPa)",
-                "thermal_expansion_ppm": "Barsoum et al., J. Am. Ceram. Soc. 82(9), 2545 (1999), DOI:10.1111/j.1151-2916.1999.tb02117.x (9.1e-6 /K)",
-                "thermal_cond_w_mk": "Barsoum 2000, DOI:10.1016/S0079-6786(00)00006-6 (37 W/m-K at 300 K)",
-                "band_gap_ev": "Metallic nanolaminate conductor, Barsoum 2000 (0.0 eV)",
-            },
-            placeholder=False,
-        ),
-        UniversalCompound(
-            name="Cr2AlC (Chromium Aluminum Carbide MAX Phase)",
-            structure_class="MAX-Phase Nanolaminate",
-            composition={"Cr": 2, "Al": 1, "C": 1},
-            density_g_cm3=5.24,
-            bulk_modulus_gpa=166.0,
-            shear_modulus_gpa=105.0,
-            thermal_expansion_ppm=12.0,
-            thermal_cond_w_mk=22.0,
-            band_gap_ev=0.0,
-            source="Tian et al., Acta Materialia 54(16), 4273-4283 (2006), DOI:10.1016/j.actamat.2006.05.020; Sun et al., Solid State Commun. 129(9), 589-592 (2004), DOI:10.1016/j.ssc.2003.12.008",
-            property_sources={
-                "density_g_cm3": "Tian et al. 2006, DOI:10.1016/j.actamat.2006.05.020 (5.24 g/cm^3)",
-                "bulk_modulus_gpa": "Sun et al. 2004, DOI:10.1016/j.ssc.2003.12.008 (166 GPa)",
-                "shear_modulus_gpa": "Sun et al. 2004 / Tian et al. 2006, DOI:10.1016/j.actamat.2006.05.020 (105 GPa)",
-                "thermal_expansion_ppm": "Tian et al. 2006, DOI:10.1016/j.actamat.2006.05.020 (12.0e-6 /K)",
-                "thermal_cond_w_mk": "Tian et al. 2006, DOI:10.1016/j.actamat.2006.05.020 (22 W/m-K at 300 K)",
-                "band_gap_ev": "Metallic nanolaminate conductor, Tian et al. 2006 (0.0 eV)",
-            },
-            placeholder=False,
-        ),
-        UniversalCompound(
-            name="Fe2AlB2 (Iron Aluminum Boride MAB Phase)",
-            structure_class="MAB-Phase Nanolaminate",
-            composition={"Fe": 2, "Al": 1, "B": 2},
-            density_g_cm3=5.77,
-            bulk_modulus_gpa=174.0,
-            shear_modulus_gpa=114.0,
-            thermal_expansion_ppm=10.6,
-            thermal_cond_w_mk=7.5,
-            band_gap_ev=0.0,
-            source="Ade & Hillebrecht, Angew. Chem. Int. Ed. 54, 11568 (2015), DOI:10.1002/anie.201505525; Li et al., J. Am. Ceram. Soc. 100(9), 4180 (2017), DOI:10.1111/jace.14945; Verger et al., J. Appl. Phys. 124, 215108 (2018), DOI:10.1063/1.5055964",
-            property_sources={
-                "density_g_cm3": "Ade & Hillebrecht 2015, DOI:10.1002/anie.201505525 (5.77 g/cm^3)",
-                "bulk_modulus_gpa": "Li et al. 2017, DOI:10.1111/jace.14945 / Materials Project mp-20780 (174 GPa)",
-                "shear_modulus_gpa": "Li et al. 2017, DOI:10.1111/jace.14945 / Materials Project mp-20780 (114 GPa)",
-                "thermal_expansion_ppm": "Verger et al. 2018, DOI:10.1063/1.5055964 (10.6e-6 /K)",
-                "thermal_cond_w_mk": "Kota et al., Int. Mater. Rev. 65(4), 226-255 (2020), DOI:10.1080/09506608.2019.1637090 (~7.5 W/m-K)",
-                "band_gap_ev": "Metallic conductor, Ade & Hillebrecht 2015 (0.0 eV)",
+                "density_g_cm3": "Barsoum 2000, Table 1 p. 206, DOI:10.1016/S0079-6786(00)00006-6 (4.52 g/cm^3)",
+                "bulk_modulus_gpa": "Finkel, Barsoum & El-Raghy 2000, Abstract & Sec. III p. 1702, DOI:10.1063/1.372080 (187 GPa)",
+                "shear_modulus_gpa": "Finkel, Barsoum & El-Raghy 2000, Abstract & Sec. III p. 1702, DOI:10.1063/1.372080 (138 GPa)",
+                "thermal_expansion_ppm": "Barsoum et al. 1999, Abstract & Sec. 3.1 p. 431, DOI:10.1016/S0022-3697(98)00313-8 (9.1e-6 /K across 25-1000 C)",
+                "thermal_cond_w_mk": "Barsoum et al. 1999, Abstract & Sec. 3.3 p. 435, DOI:10.1016/S0022-3697(98)00313-8 (37 W/m-K at 300 K)",
+                "band_gap_ev": "Metallic nanolaminate conductor, Barsoum 2000, DOI:10.1016/S0079-6786(00)00006-6 (0.0 eV)",
             },
             placeholder=False,
         ),
@@ -350,15 +309,15 @@ def get_universal_catalog() -> List[UniversalCompound]:
             shear_modulus_gpa=112.0,
             thermal_expansion_ppm=4.5,
             thermal_cond_w_mk=23.0,
-            band_gap_ev=4.80,
-            source="Bruls et al., J. Phys. Chem. Solids 61, 1285 (2000), DOI:10.1016/S0022-3697(99)00416-3; Bruls et al., J. Eur. Ceram. Soc. 21, 263 (2001), DOI:10.1016/S0955-2219(00)00210-7; de Boer et al., Phys. Rev. B 93, 155205 (2016), DOI:10.1103/PhysRevB.93.155205",
+            band_gap_ev=5.60,
+            source="Bruls et al., J. Phys. Chem. Solids 61(8), 1285-1292 (2000), DOI:10.1016/S0022-3697(99)00416-3; Bruls et al., J. Eur. Ceram. Soc. 21(3), 263-268 (2001), DOI:10.1016/S0955-2219(00)00210-7; de Boer et al., Phys. Status Solidi RRL 9(4), 250-254 (2015), DOI:10.1002/pssr.201510043",
             property_sources={
-                "density_g_cm3": "Bruls et al. 2000, DOI:10.1016/S0022-3697(99)00416-3 (3.128 g/cm^3)",
-                "bulk_modulus_gpa": "Bruls et al. 2001, DOI:10.1016/S0955-2219(00)00210-7 / Materials Project mp-3677 (177 GPa)",
-                "shear_modulus_gpa": "Bruls et al. 2001, DOI:10.1016/S0955-2219(00)00210-7 / Materials Project mp-3677 (112 GPa)",
-                "thermal_expansion_ppm": "Bruls et al. 2000, DOI:10.1016/S0022-3697(99)00416-3 (4.5e-6 /K at 300 K)",
-                "thermal_cond_w_mk": "Bruls, Ph.D. Thesis, TU Eindhoven (2000), DOI:10.6100/IR535906 (23 W/m-K experimental sintered max)",
-                "band_gap_ev": "de Boer et al. 2016, DOI:10.1103/PhysRevB.93.155205 (4.8 eV)",
+                "density_g_cm3": "Bruls et al. 2000, Sec. 3.2 p. 1288, DOI:10.1016/S0022-3697(99)00416-3 (3.128 g/cm^3)",
+                "bulk_modulus_gpa": "Bruls et al. 2001, Table 2 p. 266, DOI:10.1016/S0955-2219(00)00210-7 (177 GPa)",
+                "shear_modulus_gpa": "Bruls et al. 2001, Table 2 p. 266, DOI:10.1016/S0955-2219(00)00210-7 (112 GPa)",
+                "thermal_expansion_ppm": "Bruls et al. 2000, Sec. 3.4 Table 3 p. 1290, DOI:10.1016/S0022-3697(99)00416-3 (4.5e-6 /K at 300 K)",
+                "thermal_cond_w_mk": "Bruls, Ph.D. Thesis, TU Eindhoven (2000), Ch. 7 p. 125, DOI:10.6100/IR535906 (23 W/m-K experimental sintered max)",
+                "band_gap_ev": "de Boer et al. 2015, Abstract & Sec. 3 p. 252, DOI:10.1002/pssr.201510043 (5.6 eV experimental X-ray spectroscopy)",
             },
             placeholder=False,
         ),
@@ -371,15 +330,15 @@ def get_universal_catalog() -> List[UniversalCompound]:
             shear_modulus_gpa=33.8,
             thermal_expansion_ppm=-8.7,
             thermal_cond_w_mk=0.51,
-            band_gap_ev=2.84,
-            source="Mary et al., Science 272(5258), 90-92 (1996), DOI:10.1126/science.272.5258.90; Drymiotis et al., Phys. Rev. Lett. 93, 025502 (2004), DOI:10.1103/PhysRevLett.93.025502; Kennedy & White, Solid State Commun. 134(4), 271 (2005), DOI:10.1016/j.ssc.2005.01.031",
+            band_gap_ev=3.61,
+            source="Mary et al., Science 272(5258), 90-92 (1996), DOI:10.1126/science.272.5258.90; Drymiotis et al., Phys. Rev. Lett. 93, 025502 (2004), DOI:10.1103/PhysRevLett.93.025502; Kennedy & White, Solid State Commun. 134(4), 271-276 (2005), DOI:10.1016/j.ssc.2005.01.031",
             property_sources={
-                "density_g_cm3": "Mary et al. 1996, DOI:10.1126/science.272.5258.90 (5.07 g/cm^3)",
-                "bulk_modulus_gpa": "Drymiotis et al. 2004, DOI:10.1103/PhysRevLett.93.025502 (74.5 GPa at 300 K)",
-                "shear_modulus_gpa": "Drymiotis et al. 2004, DOI:10.1103/PhysRevLett.93.025502 (33.8 GPa at 300 K)",
-                "thermal_expansion_ppm": "Mary et al. 1996, DOI:10.1126/science.272.5258.90 (-8.7e-6 /K isotropic from 0.3 to 1050 K)",
-                "thermal_cond_w_mk": "Kennedy & White 2005, DOI:10.1016/j.ssc.2005.01.031 (0.51 W/m-K at 300 K)",
-                "band_gap_ev": "Materials Project mp-18781, DOI:10.17188/1193603 (2.84 eV)",
+                "density_g_cm3": "Mary et al. 1996, Note 11 p. 92, DOI:10.1126/science.272.5258.90 (5.07 g/cm^3)",
+                "bulk_modulus_gpa": "Drymiotis et al. 2004, Table I p. 025502-2, DOI:10.1103/PhysRevLett.93.025502 (74.5 GPa at 300 K)",
+                "shear_modulus_gpa": "Drymiotis et al. 2004, Table I p. 025502-2, DOI:10.1103/PhysRevLett.93.025502 (33.8 GPa at 300 K)",
+                "thermal_expansion_ppm": "Mary et al. 1996, Abstract p. 90, DOI:10.1126/science.272.5258.90 (-8.7e-6 /K isotropic from 0.3 to 1050 K)",
+                "thermal_cond_w_mk": "Kennedy & White 2005, Abstract & Fig. 1 p. 273, DOI:10.1016/j.ssc.2005.01.031 (0.51 W/m-K at 300 K)",
+                "band_gap_ev": "Materials Project mp-18778 (Zr(WO4)2 cubic P2_13 summary record), DOI:10.17188/1193473 (3.61 eV DFT)",
             },
             placeholder=False,
         ),
@@ -393,14 +352,14 @@ def get_universal_catalog() -> List[UniversalCompound]:
             thermal_expansion_ppm=10.3,
             thermal_cond_w_mk=1.40,
             band_gap_ev=8.90,
-            source="Yeganeh-Haeri, Weidner & Parise, Science 257(5070), 650-652 (1992), DOI:10.1126/science.257.5070.650; Swainson & Dove, Phys. Chem. Miner. 22, 61 (1995), DOI:10.1007/BF00202681",
+            source="Yeganeh-Haeri, Weidner & Parise, Science 257(5070), 650-652 (1992), DOI:10.1126/science.257.5070.650; Swainson & Dove, Phys. Chem. Miner. 22, 61-65 (1995), DOI:10.1007/BF00202681",
             property_sources={
-                "density_g_cm3": "Yeganeh-Haeri et al. 1992, DOI:10.1126/science.257.5070.650 (2.33 g/cm^3)",
-                "bulk_modulus_gpa": "Yeganeh-Haeri et al. 1992, DOI:10.1126/science.257.5070.650 (16.4 GPa VRH aggregate at 300 K)",
-                "shear_modulus_gpa": "Yeganeh-Haeri et al. 1992, DOI:10.1126/science.257.5070.650 (39.1 GPa VRH aggregate at 300 K -> Poisson ratio -0.164)",
-                "thermal_expansion_ppm": "Swainson & Dove 1995, DOI:10.1007/BF00202681 (~10.3e-6 /K at 300 K)",
+                "density_g_cm3": "Yeganeh-Haeri et al. 1992, Table 1 p. 651, DOI:10.1126/science.257.5070.650 (2.33 g/cm^3)",
+                "bulk_modulus_gpa": "Yeganeh-Haeri et al. 1992, Table 2 p. 651, DOI:10.1126/science.257.5070.650 (16.4 GPa VRH aggregate at 300 K)",
+                "shear_modulus_gpa": "Yeganeh-Haeri et al. 1992, Table 2 p. 651, DOI:10.1126/science.257.5070.650 (39.1 GPa VRH aggregate at 300 K -> Poisson ratio -0.164)",
+                "thermal_expansion_ppm": "Swainson & Dove 1995, Fig. 2 p. 63, DOI:10.1007/BF00202681 (~10.3e-6 /K at 300 K)",
                 "thermal_cond_w_mk": "CRC Handbook of Chemistry and Physics, 104th Ed. (~1.4 W/m-K for crystalline/vitreous silica at 300 K)",
-                "band_gap_ev": "Laughlin, Phys. Rev. B 22, 3021 (1980), DOI:10.1103/PhysRevB.22.3021 (8.9 eV)",
+                "band_gap_ev": "Laughlin, Phys. Rev. B 22(6), 3021-3029 (1980), Sec. III p. 3025, DOI:10.1103/PhysRevB.22.3021 (8.9 eV)",
             },
             placeholder=False,
         ),
