@@ -81,6 +81,21 @@ class MaterialEntry:
     property_sources: Dict[str, str] = field(default_factory=dict)
     placeholder: bool = False
 
+    def __post_init__(self) -> None:
+        if not self.composition:
+            raise ValueError("composition must not be empty.")
+        for el, count in self.composition.items():
+            if el not in ATOMIC_MASS or el not in ELEMENT_COST_USD_PER_KG:
+                raise ValueError(f"Unknown element in composition: {el!r}")
+            if count <= 0:
+                raise ValueError(f"Element count for {el!r} must be positive, got {count}.")
+        if self.density_g_cm3 <= 0:
+            raise ValueError(f"density_g_cm3 must be positive, got {self.density_g_cm3}.")
+        if self.bulk_modulus_gpa <= 0:
+            raise ValueError(f"bulk_modulus_gpa must be positive, got {self.bulk_modulus_gpa}.")
+        if self.shear_modulus_gpa <= 0:
+            raise ValueError(f"shear_modulus_gpa must be positive, got {self.shear_modulus_gpa}.")
+
     @property
     def formula(self) -> str:
         return "".join(
@@ -104,7 +119,7 @@ class MaterialEntry:
     @property
     def pugh_ratio(self) -> float:
         """B/G ratio (Pugh, Phil. Mag. 45, 823, 1954)."""
-        return self.bulk_modulus_gpa / max(self.shear_modulus_gpa, 1.0)
+        return self.bulk_modulus_gpa / self.shear_modulus_gpa
 
     @property
     def poisson_ratio(self) -> float:
@@ -125,8 +140,7 @@ class MaterialEntry:
         k = self.shear_modulus_gpa / self.bulk_modulus_gpa
         if k > 1.0 or self.poisson_ratio < 0.0:
             return None
-        val = 2.0 * ((k ** 2) * self.shear_modulus_gpa) ** 0.585 - 3.0
-        return max(val, 1.0)
+        return 2.0 * ((k ** 2) * self.shear_modulus_gpa) ** 0.585 - 3.0
 
     @property
     def youngs_modulus_gpa(self) -> float:

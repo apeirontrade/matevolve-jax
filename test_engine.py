@@ -195,6 +195,34 @@ class TestEngineAndApp(unittest.TestCase):
         items = {row["name"]: row for row in json.loads(body)}
         self.assertIsNone(items["SiO2 (Alpha-Cristobalite)"]["hardness_gpa"])
 
+    def test_post_init_input_validation(self) -> None:
+        """Verifies that MaterialEntry.__post_init__ rejects non-positive moduli/density, empty composition, and unknown elements."""
+        base_kwargs = dict(
+            name="Valid",
+            structure_class="Ceramic",
+            composition={"Al": 1.0, "N": 1.0},
+            density_g_cm3=3.26,
+            bulk_modulus_gpa=211.0,
+            shear_modulus_gpa=133.0,
+            thermal_expansion_ppm=4.5,
+            thermal_cond_w_mk=285.0,
+            band_gap_ev=6.2,
+        )
+        for bad_override in (
+            {"bulk_modulus_gpa": 0.0},
+            {"bulk_modulus_gpa": -50.0},
+            {"shear_modulus_gpa": 0.0},
+            {"shear_modulus_gpa": -10.0},
+            {"density_g_cm3": 0.0},
+            {"density_g_cm3": -1.0},
+            {"composition": {}},
+            {"composition": {"Xe": 1.0}},
+            {"composition": {"Al": 0.0, "N": 1.0}},
+        ):
+            kwargs = {**base_kwargs, **bad_override}
+            with self.assertRaises(ValueError):
+                engine.MaterialEntry(**kwargs)
+
     def test_no_max_mab_or_alloy_gets_hardness_label(self) -> None:
         """Verifies that MAX phases, MAB phases, and metallic alloys return 0.0 on heuristic 2."""
         for entry in engine.get_catalog():
